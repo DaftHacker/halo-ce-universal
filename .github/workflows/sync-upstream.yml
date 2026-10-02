@@ -1,0 +1,70 @@
+name: Sync upstream
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  remove-obsolete-branch:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove old Bumper Jumper branch
+        run: |
+          if git ls-remote --exit-code --heads origin refs/heads/bumper-jumper-android >/dev/null 2>&1; then
+            git push origin --delete bumper-jumper-android
+          fi
+
+  sync:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream https://github.com/cybersecurity/halo-ce-universal.git
+          git fetch --no-tags upstream main
+
+      - name: Merge upstream main
+        id: merge
+        run: |
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git merge --no-edit upstream/main
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Sanity-check build tooling
+        if: steps.merge.outputs.changed == 'true'
+        run: python3 -m py_compile configure.py tools/*.py
+
+      - name: Update main
+        if: steps.merge.outputs.changed == 'true'
+        run: git push origin HEAD:main
+
+      - name: Start normal cross-platform build
+        if: steps.merge.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run build.yml --ref main
