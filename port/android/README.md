@@ -95,6 +95,25 @@ The controller gets the rumble. The back gesture of Android is the B
 button. A Bluetooth or USB keyboard operates as on Linux. The screen does
 not accept touch input.
 
+### Bumper Jumper
+
+Bumper Jumper is available from the normal player-profile controller
+settings; it is not forced as Android's default layout. Selecting it changes
+gameplay controls while menu navigation remains A = accept and B = back.
+
+| Xbox-style input | Bumper Jumper function |
+| --- | --- |
+| LB / white | jump |
+| RB / black | melee |
+| A | switch grenades |
+| B | action / reload |
+| X | flashlight |
+| Y | switch weapon |
+| LT | throw grenade |
+| RT | fire |
+| L3 | crouch |
+| R3 | zoom |
+
 ## Settings
 
 The settings are in `config.toml` in the data folder of the app. To change
