@@ -694,6 +694,20 @@ static void set_default_game_input_preferences(
 	preferences->game_control_to_xbox_buttons[_game_control_back] = _gamepad_binary_button_back;
 	preferences->game_control_to_xbox_buttons[_game_control_crouch] = _gamepad_binary_button_left_thumb;
 	preferences->game_control_to_xbox_buttons[_game_control_zoom] = _gamepad_binary_button_right_thumb;
+#ifdef HALO_ANDROID
+	/*
+	 * Keep the default runtime preferences consistent before a player
+	 * profile is active. This affects gameplay mapping only.
+	 */
+	preferences->game_control_to_xbox_buttons[_game_control_jump] = _gamepad_analog_button_white;
+	preferences->game_control_to_xbox_buttons[_game_control_switch_grenades] = _gamepad_analog_button_a;
+	preferences->game_control_to_xbox_buttons[_game_control_action] = _gamepad_analog_button_b;
+	preferences->game_control_to_xbox_buttons[_game_control_switch_weapons] = _gamepad_analog_button_y;
+	preferences->game_control_to_xbox_buttons[_game_control_melee] = _gamepad_analog_button_black;
+	preferences->game_control_to_xbox_buttons[_game_control_flashlight] = _gamepad_analog_button_x;
+	preferences->game_control_to_xbox_buttons[_game_control_grenade] = _gamepad_analog_button_left_trigger;
+	preferences->game_control_to_xbox_buttons[_game_control_primary_trigger] = _gamepad_analog_button_right_trigger;
+#endif
 	preferences->joystick_controls = _joystick_controls_default;
 	preferences->invert_look = FALSE;
 	preferences->invert_look_aircraft_control = FALSE;
