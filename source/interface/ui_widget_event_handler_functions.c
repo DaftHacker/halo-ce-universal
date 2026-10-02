@@ -4005,6 +4005,10 @@ static boolean player_profile_initialize_controller_settings(
 		while (option_spinner && option_spinner->type != 2)
 			option_spinner = option_spinner->next;
 		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3816, option_spinner, "expected 'button config' option spinner list");
+		/* The retail map contains five button-layout strings. Add the fork's
+		   sixth preset to this spinner at runtime without changing map data. */
+		if (option_spinner->parameters.list.number_of_items < NUMBER_OF_BUTTON_PRESETS)
+			option_spinner->parameters.list.number_of_items = NUMBER_OF_BUTTON_PRESETS;
 		switch (profile->controller_settings.button_preset)
 		{
 		case _button_preset_standard:
@@ -4021,6 +4025,9 @@ static boolean player_profile_initialize_controller_settings(
 			break;
 		case _button_preset_swap_b_and_right_thumb:
 			option_spinner->data3C.selected_index = 4;
+			break;
+		case _button_preset_bumper_jumper:
+			option_spinner->data3C.selected_index = 5;
 			break;
 		default:
 			option_spinner->data3C.selected_index = 0;
@@ -4660,6 +4667,7 @@ static boolean player_profile_change_controller_settings(
 		case _button_preset_swap_a_and_left_trigger: profile->controller_settings.button_preset = _button_preset_swap_a_and_left_trigger; return TRUE;
 		case _button_preset_swap_b_and_left_trigger: profile->controller_settings.button_preset = _button_preset_swap_b_and_left_trigger; return TRUE;
 		case _button_preset_swap_b_and_right_thumb: profile->controller_settings.button_preset = _button_preset_swap_b_and_right_thumb; return TRUE;
+		case _button_preset_bumper_jumper: profile->controller_settings.button_preset = _button_preset_bumper_jumper; return TRUE;
 		default: error(2, "unknown button config option selected"); return TRUE;
 		}
 	}
