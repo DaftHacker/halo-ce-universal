@@ -1095,7 +1095,7 @@ static void set_local_player_controls_from_player_profile(
 
 #ifdef HALO_ANDROID
 	/*
-	 * Halo 3-style Bumper Jumper for gameplay only.
+	 * Halo 3-style Bumper Jumper for Android gameplay only.
 	 * Menu navigation reads the raw gamepad state in player_control.c,
 	 * so A remains accept and B remains back in menus.
 	 */
