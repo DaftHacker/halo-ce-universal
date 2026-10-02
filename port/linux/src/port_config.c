@@ -98,8 +98,20 @@ static const struct config_setting config_settings[] =
 		"\"allies\", \"enemies\" or \"none\". An enemy's shows only while in sight\n"
 		"and not camouflaged." },
 	{ "display.player_name_scale", _config_real, "1.0", "HALO_PLAYER_NAME_SCALE", _environment_value, _platform_all,
-		"How large the players' names are drawn: 1.0 the size of the HUD's text,\n"
-		"0.25 to 4." },
+		"How large the players' names are drawn: 1.0 three quarters of the size of\n"
+		"the HUD's text, 0.25 to 4." },
+	{ "display.scoreboard_team_layout", _config_string, "\"teams\"", "HALO_SCOREBOARD_TEAM_LAYOUT", _environment_value,
+		_platform_all,
+		"How the scoreboard lists a team game's players: \"teams\" in a column for\n"
+		"each team (red on the left, blue on the right), \"score\" all in order of\n"
+		"score." },
+	{ "display.scoreboard_background", _config_boolean, "true", "HALO_SCOREBOARD_BACKGROUND", _environment_value,
+		_platform_all,
+		"Draw a panel behind the multiplayer scoreboard, for clearer text." },
+	{ "display.scoreboard_background_color", _config_string, "\"16, 16, 16, 150\"", "HALO_SCOREBOARD_BACKGROUND_COLOR",
+		_environment_value, _platform_all,
+		"The scoreboard panel's colour: \"red, green, blue, alpha\", each 0 to 255\n"
+		"(alpha 0 is see-through, 255 solid)." },
 
 	{ "audio.enabled", _config_boolean, "true", "HALO_NO_AUDIO", _environment_set_is_false, _platform_all,
 		"Play sound." },
@@ -230,6 +242,9 @@ static const struct config_setting config_settings[] =
 		"Run without a window, drawing nothing." },
 	{ "debug.gl_debug", _config_boolean, "false", "HALO_GL_DEBUG", _environment_set_is_true, _platform_all,
 		"Report OpenGL errors in the log." },
+	{ "debug.gpu_flush_draws", _config_integer, "-1", "HALO_GPU_FLUSH_DRAWS", _environment_value, _platform_desktop,
+		"Flush the GPU's pipeline every this many draws: -1 for every 3 on Intel\n"
+		"graphics with Mesa's driver (which can hang without), 0 never." },
 	{ "debug.gpu_stats", _config_boolean, "false", "HALO_GPU_STATS", _environment_set_is_true, _platform_all,
 		"Log the renderer's draw counts once a second." },
 	{ "debug.gpu_trace_frame", _config_integer, "-1", "HALO_GPU_TRACE", _environment_value, _platform_all,
