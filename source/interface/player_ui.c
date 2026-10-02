@@ -1093,6 +1093,26 @@ static void set_local_player_controls_from_player_profile(
 			break;
 	}
 
+#ifdef HALO_ANDROID
+	/*
+	 * Halo 3-style Bumper Jumper for gameplay only.
+	 * Menu navigation reads the raw gamepad state in player_control.c,
+	 * so A remains accept and B remains back in menus.
+	 */
+	preferences.game_control_to_xbox_buttons[0] = _gamepad_analog_button_white;         /* LB: jump */
+	preferences.game_control_to_xbox_buttons[1] = _gamepad_analog_button_a;             /* A: switch grenades */
+	preferences.game_control_to_xbox_buttons[2] = _gamepad_analog_button_b;             /* B: action/reload */
+	preferences.game_control_to_xbox_buttons[3] = _gamepad_analog_button_y;             /* Y: switch weapon */
+	preferences.game_control_to_xbox_buttons[4] = _gamepad_analog_button_black;         /* RB: melee */
+	preferences.game_control_to_xbox_buttons[5] = _gamepad_analog_button_x;             /* X: flashlight */
+	preferences.game_control_to_xbox_buttons[6] = _gamepad_analog_button_left_trigger;  /* LT: throw grenade */
+	preferences.game_control_to_xbox_buttons[7] = _gamepad_analog_button_right_trigger; /* RT: fire */
+	preferences.game_control_to_xbox_buttons[8] = _gamepad_binary_button_start;
+	preferences.game_control_to_xbox_buttons[9] = _gamepad_binary_button_back;
+	preferences.game_control_to_xbox_buttons[10] = _gamepad_binary_button_left_thumb;   /* LS: crouch */
+	preferences.game_control_to_xbox_buttons[11] = _gamepad_binary_button_right_thumb;  /* RS: zoom */
+#endif
+
 	preferences.invert_look = controls->invert_look;
 	preferences.invert_look_aircraft_control = controls->flight_stick_aircraft_controls;
 	controller_index = player_ui_globals.single_player_controller[local_player_index];
