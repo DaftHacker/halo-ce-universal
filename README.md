@@ -1,9 +1,25 @@
-# Halo: Combat Evolved for Linux, Windows and Android
+# Halo: Combat Evolved Universal
 
-[![Join our Discord](https://invidget.switchblade.xyz/9gqcHyr5km)](https://discord.gg/9gqcHyr5km)
+This repository is DaftHacker's maintained fork of
+[cybersecurity/halo-ce-universal](https://github.com/cybersecurity/halo-ce-universal).
+It keeps the Linux, Windows and Android port while carrying our controller,
+Android and platform improvements directly on `main`.
 
-This project is a port of the Halo: Combat Evolved decompilation to Linux,
-Windows and Android. The decompilation is of the Xbox build 2342
+## Fork changes
+
+- **Bumper Jumper is a real controller preset.** It is selected and saved from
+  the normal player-profile controller settings instead of replacing the
+  default controls.
+- **Android keeps normal menu controls.** A remains Accept and B remains Back;
+  the selected layout changes gameplay input only.
+- **Fork builds update from this repository.** The built-in updater follows
+  `DaftHacker/halo-ce-universal` instead of switching back to upstream.
+- **Upstream sync is automated.** GitHub Actions periodically merges
+  `cybersecurity/halo-ce-universal:main` into this fork's `main`. A merge
+  conflict stops the sync without replacing fork changes.
+
+The underlying project is a port of the Halo: Combat Evolved decompilation to
+Linux, Windows and Android. The decompilation is of the Xbox build 2342
 (`cachebeta.exe`, SHA-256
 `4cc87b45f721270392a96f1674ed2b5cd4a7bb4355faeab4531d1cf1884d9520`).
 
@@ -19,20 +35,20 @@ builds of the latest release:
 
 | Platform | Release | Debug |
 | --- | --- | --- |
-| Linux | [halo-linux-release.zip](https://github.com/cybersecurity/halo-ce-universal/releases/latest/download/halo-linux-release.zip) | [halo-linux-debug.zip](https://github.com/cybersecurity/halo-ce-universal/releases/latest/download/halo-linux-debug.zip) |
-| Windows | [halo-windows-release.zip](https://github.com/cybersecurity/halo-ce-universal/releases/latest/download/halo-windows-release.zip) | [halo-windows-debug.zip](https://github.com/cybersecurity/halo-ce-universal/releases/latest/download/halo-windows-debug.zip) |
-| Android | [halo-android-release.zip](https://github.com/cybersecurity/halo-ce-universal/releases/latest/download/halo-android-release.zip) | [halo-android-debug.zip](https://github.com/cybersecurity/halo-ce-universal/releases/latest/download/halo-android-debug.zip) |
+| Linux | [halo-linux-release.zip](https://github.com/DaftHacker/halo-ce-universal/releases/latest/download/halo-linux-release.zip) | [halo-linux-debug.zip](https://github.com/DaftHacker/halo-ce-universal/releases/latest/download/halo-linux-debug.zip) |
+| Windows | [halo-windows-release.zip](https://github.com/DaftHacker/halo-ce-universal/releases/latest/download/halo-windows-release.zip) | [halo-windows-debug.zip](https://github.com/DaftHacker/halo-ce-universal/releases/latest/download/halo-windows-debug.zip) |
+| Android | [halo-android-release.zip](https://github.com/DaftHacker/halo-ce-universal/releases/latest/download/halo-android-release.zip) | [halo-android-debug.zip](https://github.com/DaftHacker/halo-ce-universal/releases/latest/download/halo-android-debug.zip) |
 
 Use the release build to play. The debug build stops at the first failed
 assertion and writes it to the log. Use the debug build to find and report
 problems.
 
-The game updates itself. At start-up it looks for a newer release, and asks
-if you want to install it. Refer to "Updates" in
+The game updates itself from this fork's releases. At start-up it looks for a
+newer release, and asks if you want to install it. Refer to "Updates" in
 [port/linux/README.md](port/linux/README.md#updates).
 
-Each build of the `main` branch that passes on all three platforms is a new
-release. The [Releases](https://github.com/cybersecurity/halo-ce-universal/releases)
+Each build of this fork's `main` branch that passes on all three platforms is
+a new release. The [Releases](https://github.com/DaftHacker/halo-ce-universal/releases)
 page keeps the last five releases. If the latest build has a problem, get
 an older build from that page.
 
@@ -138,3 +154,10 @@ To record a new profile:
 The build then plays the main menu and the first minute of each campaign
 level. This procedure continues for approximately 15 minutes. The game
 data must be in `assets/`.
+
+## Upstream
+
+Upstream development lives at
+[cybersecurity/halo-ce-universal](https://github.com/cybersecurity/halo-ce-universal).
+This fork preserves upstream history and periodically merges upstream `main`
+rather than keeping fork changes on a separate long-lived feature branch.
