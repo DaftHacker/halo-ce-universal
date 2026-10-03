@@ -5308,9 +5308,25 @@ static void widget_instance_render_spinner_list(
 		if (definition->text_label_string_list.index != NONE)
 		{
 			short string_index = widget->parameters.list.selected_index;
-			wchar_t *string = spinner_string_list_get_string(
-				definition->text_label_string_list.index,
-				string_index);
+			struct string_list *string_list =
+				unicode_string_list_definition_get(definition->text_label_string_list.index);
+			wchar_t *string;
+
+			/* The controller-layout spinner is extended by one item at runtime.
+			   Its retail string list still has only the original five entries. */
+			if (string_index == _button_preset_bumper_jumper &&
+				widget->parameters.list.number_of_items == NUMBER_OF_BUTTON_PRESETS &&
+				string_list &&
+				string_list->strings.count == NUMBER_OF_BUTTON_PRESETS - 1)
+			{
+				string = L"Bumper Jumper";
+			}
+			else
+			{
+				string = spinner_string_list_get_string(
+					definition->text_label_string_list.index,
+					string_index);
+			}
 			unsigned long length = ustrlen(string);
 
 			item_text = pool_new_pointer(
