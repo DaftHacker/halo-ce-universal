@@ -4007,8 +4007,8 @@ static boolean player_profile_initialize_controller_settings(
 		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3816, option_spinner, "expected 'button config' option spinner list");
 		/* The retail map contains five button-layout strings. Add the fork's
 		   sixth preset to this spinner at runtime without changing map data. */
-		if (option_spinner->parameters.list.number_of_items < NUMBER_OF_BUTTON_PRESETS)
-			option_spinner->parameters.list.number_of_items = NUMBER_OF_BUTTON_PRESETS;
+		if (option_spinner->generated_count < NUMBER_OF_BUTTON_PRESETS)
+			option_spinner->generated_count = NUMBER_OF_BUTTON_PRESETS;
 		switch (profile->controller_settings.button_preset)
 		{
 		case _button_preset_standard:
