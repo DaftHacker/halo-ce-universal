@@ -80,9 +80,10 @@ static const struct config_setting config_settings[] =
 		"Xbox's 4:3." },
 	{ "display.vsync", _config_boolean, "true", "HALO_NO_VSYNC", _environment_set_is_false, _platform_all,
 		"Wait for the display between frames; false draws as fast as possible." },
-	{ "display.max_fps", _config_integer, "0", "HALO_MAX_FPS", _environment_value, _platform_desktop,
-		"With vsync off, the most frames a second: 0 for twice the display's\n"
-		"refresh rate, -1 for no limit (which can hang some Intel graphics)." },
+	{ "display.max_fps", _config_integer, "0", "HALO_MAX_FPS", _environment_value, _platform_all,
+		"With vsync off, the most frames a second. On Android a positive value\n"
+		"also caps below the display refresh rate with vsync on. 0 keeps the\n"
+		"platform default; -1 disables the software limit." },
 	{ "display.interpolation", _config_boolean, "true", "HALO_INTERPOLATION", _environment_value, _platform_all,
 		"Draw a frame for every display refresh, blending between the game's 30\n"
 		"ticks a second; false keeps the original 30 frames a second." },
@@ -132,6 +133,9 @@ static const struct config_setting config_settings[] =
 	{ "audio.effects_volume", _config_real, "1.0", "HALO_EFFECTS_VOLUME", _environment_value, _platform_all,
 		"The volume of every other sound (effects and speech), 0.0 to 1.0 (of\n"
 		"audio.volume)." },
+	{ "audio.buffer_frames", _config_integer, "1024", "HALO_AUDIO_BUFFER_FRAMES", _environment_value, _platform_android,
+		"Android audio device buffer in frames, clamped to 256..4096. Larger\n"
+		"values resist scheduler stalls at the cost of output latency." },
 
 	{ "input.mouse_sensitivity", _config_real, "1.0", "HALO_MOUSE_SENSITIVITY", _environment_value, _platform_desktop,
 		"How far the view turns for the mouse's movement." },

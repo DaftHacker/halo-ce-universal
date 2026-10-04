@@ -195,11 +195,14 @@ static const char shader_prologue[] =
 	"}\n";
 
 char *nv2a_vertex_shader_to_glsl(const DWORD *instructions, unsigned long instruction_count,
-	unsigned long packed_attribute_mask)
+	unsigned long packed_attribute_mask, unsigned long color_attribute_mask)
 {
 	struct xgpu_text text = { 0 };
 	unsigned long index;
 
+#ifndef HALO_ANDROID
+	(void)color_attribute_mask;
+#endif
 #ifdef HALO_ANDROID
 	xgpu_text_append(&text, "#version %s\n", xgpu_capabilities.shading_language);
 #endif
@@ -217,6 +220,11 @@ char *nv2a_vertex_shader_to_glsl(const DWORD *instructions, unsigned long instru
 	{
 		if (packed_attribute_mask & (1UL << index))
 			xgpu_text_append(&text, "\tvec4 v%lu = unpack_normpacked3(v%lu_packed);\n", index, index);
+#ifdef HALO_ANDROID
+		else if (color_attribute_mask & (1UL << index))
+			/* Xbox D3DCOLOR is AARRGGBB, hence BGRA bytes on little-endian ARM. */
+			xgpu_text_append(&text, "\tvec4 v%lu = v%lu_in.bgra;\n", index, index);
+#endif
 		else
 			xgpu_text_append(&text, "\tvec4 v%lu = v%lu_in;\n", index, index);
 	}

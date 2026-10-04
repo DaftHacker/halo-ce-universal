@@ -67,10 +67,12 @@ void xgpu_text_append(struct xgpu_text *text, const char *format, ...) __attribu
 
 /* GLSL for an NV2A vertex program (the instruction words after the program
 header). Attributes whose bit is set in packed_attribute_mask are fed as
-NORMPACKED3 32-bit integers and unpacked in the shader. Returns a malloc'd
-string. */
+NORMPACKED3 32-bit integers and unpacked in the shader. On Android,
+color_attribute_mask marks D3DCOLOR inputs whose little-endian BGRA bytes are
+swizzled to RGBA in GLSL instead of copied and rewritten on the CPU. Returns a
+malloc'd string. */
 char *nv2a_vertex_shader_to_glsl(const DWORD *instructions, unsigned long instruction_count,
-	unsigned long packed_attribute_mask);
+	unsigned long packed_attribute_mask, unsigned long color_attribute_mask);
 
 /* ---------- pixel shaders */
 

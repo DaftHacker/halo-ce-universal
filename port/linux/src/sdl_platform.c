@@ -566,15 +566,64 @@ static Uint64 frame_interval_ns(void)
 	}
 	return (Uint64)(1e9f / rate);
 }
+#else
+/* The Android guest intentionally exposes only a small SDL surface, so use
+POSIX monotonic time for an optional software cap. A positive maximum is
+useful even with vsync: it can hold a 60/90/120 Hz display to a sustainable
+rate and leave CPU time for audio and the OS. */
+static void android_frame_limit(void)
+{
+	static unsigned long read_at = (unsigned long)-1;
+	static long maximum;
+	static unsigned long long previous_ns;
+	unsigned long long now_ns, target_ns, interval;
+	struct timespec now, target;
 
+	if (read_at != config_changes())
+	{
+		read_at = config_changes();
+		maximum = config_integer("display.max_fps");
+		previous_ns = 0;
+	}
+	if (maximum <= 0)
+	{
+		previous_ns = 0;
+		return;
+	}
+	if (maximum > 1000)
+		maximum = 1000;
+
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	now_ns = (unsigned long long)now.tv_sec * 1000000000ULL + (unsigned long long)now.tv_nsec;
+	if (!previous_ns)
+	{
+		previous_ns = now_ns;
+		return;
+	}
+	interval = 1000000000ULL / (unsigned long long)maximum;
+	target_ns = previous_ns + interval;
+	if (target_ns > now_ns)
+	{
+		target.tv_sec = (time_t)(target_ns / 1000000000ULL);
+		target.tv_nsec = (long)(target_ns % 1000000000ULL);
+		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &target, NULL);
+		previous_ns = target_ns;
+	}
+	else
+	{
+		/* Do not accumulate a long catch-up burst after a slow frame. */
+		previous_ns = now_ns - target_ns > interval ? now_ns : target_ns;
+	}
+}
 #endif
+
 void platform_video_swap(void)
 {
 #ifndef HALO_ANDROID
 	static Uint64 next_frame;
 	Uint64 interval, now;
-
 #endif
+
 	SDL_GL_SwapWindow(platform_window);
 #ifndef HALO_ANDROID
 	interval = frame_interval_ns();
@@ -588,6 +637,8 @@ void platform_video_swap(void)
 	}
 	/* (a frame more than an interval late starts the count again) */
 	next_frame = now - next_frame > interval ? now + interval : next_frame + interval;
+#else
+	android_frame_limit();
 #endif
 }
 

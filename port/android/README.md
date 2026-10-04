@@ -263,7 +263,9 @@ functions of OpenGL ES 3.2 if they are available:
 - BGRA textures go to the GPU as RGBA with a swizzle. If the driver has no
   S3TC (Mali GPUs), the CPU decodes the DXT textures.
 - The pixel shaders apply the LOD bias of the sampler.
-- The upload changes the byte order of `D3DCOLOR` vertex attributes.
+- `D3DCOLOR` vertex attributes stay in their Xbox BGRA byte order in guest
+  memory; generated vertex shaders swizzle them to RGBA. This lets color
+  streams use the same mirrored-buffer path as other static vertex data.
 - Dynamic vertex and index data goes into a ring of three buffers, one for
   each frame. On Mali, other methods used too much memory.
 - On OpenGL ES 3.2, indexed draws use a base vertex. Before 3.2, the CPU
@@ -309,6 +311,23 @@ assembly of the port is necessary:
   address.
 - The symbol aliases in `guest/libc/src_include/features.h`. The Darwin
   target does not accept alias attributes.
+
+## Performance tuning
+
+The Android defaults favor compatibility, but two settings are useful on
+CPU-limited devices:
+
+- `audio.buffer_frames = 1024` is the Android default. The value is clamped
+  to 256..4096 frames. Increasing it can hide short scheduler stalls; lowering
+  it reduces audio latency but makes underruns more likely.
+- `display.max_fps = N` enables a software cap on Android for positive values,
+  even with vsync enabled. A sustainable cap such as 30, 45 or 60 can improve
+  frame pacing and leave CPU time for audio. `0` keeps normal platform pacing
+  and `-1` disables the software cap.
+
+For diagnosis, `display.interpolation = false` keeps the original 30 rendered
+frames per second. If that materially improves audio or frame pacing, the
+device is limited by per-frame CPU/render work rather than game simulation.
 
 ## Find problems
 

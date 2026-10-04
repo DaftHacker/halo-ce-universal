@@ -36,6 +36,7 @@ skips opening a device (port_config.c).
 
 #include <SDL3/SDL.h>
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -472,6 +473,27 @@ static void *silent_clock_thread(void *parameter)
 	return NULL;
 }
 
+static void audio_set_buffer_hint(void)
+{
+#ifdef HALO_ANDROID
+	long frames = config_integer("audio.buffer_frames");
+	char value[16];
+
+	/* The Android bridge hands SDL's real-time callback to a guest-capable
+	thread. Give mobile schedulers enough headroom for that hand-off without
+	making latency unreasonably large. */
+	if (frames < 256)
+		frames = 256;
+	if (frames > 4096)
+		frames = 4096;
+	snprintf(value, sizeof(value), "%ld", frames);
+	SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, value);
+	platform_log("audio: Android device buffer %ld frames", frames);
+#else
+	SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, "512");
+#endif
+}
+
 static void audio_start(void)
 {
 	SDL_AudioSpec spec;
@@ -486,7 +508,7 @@ static void audio_start(void)
 		spec.format = SDL_AUDIO_F32;
 		spec.channels = OUTPUT_CHANNELS;
 		spec.freq = OUTPUT_RATE;
-		SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, "512");
+		audio_set_buffer_hint();
 		audio_stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_callback, NULL);
 		if (audio_stream)
 		{

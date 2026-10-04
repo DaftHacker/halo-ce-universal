@@ -171,6 +171,9 @@ struct vertex_shader_object
 	struct vertex_element elements[XGPU_VERTEX_ATTRIBUTE_COUNT];
 	unsigned long element_count;
 	unsigned long packed_mask;
+	/* D3DCOLOR inputs are BGRA bytes in Xbox memory. OpenGL ES has no
+	BGRA vertex-attribute format, so the Android vertex shader swaps them. */
+	unsigned long color_mask;
 	/* [0] streams per the declaration, [1] immediate mode (all floats) */
 	GLuint shader[2];
 };
@@ -1695,6 +1698,8 @@ static void parse_declaration(struct vertex_shader_object *object, const DWORD *
 				offsets[stream] += element->bytes;
 				if (element->type == D3DVSDT_NORMPACKED3)
 					object->packed_mask |= 1UL << element->reg;
+				if (element->type == D3DVSDT_D3DCOLOR)
+					object->color_mask |= 1UL << element->reg;
 			}
 			break;
 		case D3DVSD_TOKEN_CONSTMEM:
@@ -1821,7 +1826,8 @@ static GLuint vertex_shader_get(struct vertex_shader_object *program, BOOL immed
 	if (!program->shader[variant])
 	{
 		char *source = nv2a_vertex_shader_to_glsl(program->instructions, program->instruction_count,
-			immediate ? 0 : device.vertex_shader->packed_mask);
+			immediate ? 0 : device.vertex_shader->packed_mask,
+			immediate ? 0 : device.vertex_shader->color_mask);
 
 		program->shader[variant] = compile_shader(GL_VERTEX_SHADER, source, "vertex");
 		if (debug_settings.dump_shaders)
@@ -3102,48 +3108,6 @@ static unsigned long stream_upload(const void *data, unsigned long size)
 	return offset;
 }
 
-#ifdef HALO_ANDROID
-/* stream_upload, with the D3DCOLOR elements of the stream turned from BGRA
-into the RGBA byte order ES reads */
-static unsigned long stream_upload_swizzled(const struct vertex_shader_object *declaration, unsigned long stream,
-	const unsigned char *data, unsigned long size, unsigned long stride)
-{
-	static unsigned char *scratch;
-	static unsigned long scratch_size;
-	unsigned long offsets[XGPU_VERTEX_ATTRIBUTE_COUNT];
-	unsigned long count = 0, index, vertex;
-
-	for (index = 0; index < declaration->element_count; index++)
-	{
-		const struct vertex_element *element = &declaration->elements[index];
-
-		if (element->stream == stream && element->type == D3DVSDT_D3DCOLOR)
-			offsets[count++] = element->offset;
-	}
-	if (!count || !stride)
-		return stream_upload(data, size);
-	if (scratch_size < size)
-	{
-		free(scratch);
-		scratch_size = size + 65536;
-		scratch = malloc(scratch_size);
-	}
-	memcpy(scratch, data, size);
-	for (vertex = 0; vertex + stride <= size; vertex += stride)
-	{
-		for (index = 0; index < count; index++)
-		{
-			unsigned char *color = scratch + vertex + offsets[index];
-			unsigned char blue = color[0];
-
-			color[0] = color[2];
-			color[2] = blue;
-		}
-	}
-	return stream_upload(scratch, size);
-}
-#endif
-
 static unsigned long index_upload(const void *data, unsigned long size)
 {
 	unsigned long offset;
@@ -3175,7 +3139,7 @@ static void attribute_format(const struct vertex_element *element, GLint *size, 
 	case D3DVSDT_FLOAT3: case D3DVSDT_FLOAT2H: *size = 3; *type = GL_FLOAT; break;
 	case D3DVSDT_FLOAT4: *size = 4; *type = GL_FLOAT; break;
 #ifdef HALO_ANDROID
-	/* ES has no BGRA attributes: stream_upload_swizzled swaps the bytes */
+	/* ES has no BGRA attribute format; nv2a_vsh.c swaps this input in GLSL. */
 	case D3DVSDT_D3DCOLOR: *size = 4; *type = GL_UNSIGNED_BYTE; *normalized = GL_TRUE; break;
 #else
 	case D3DVSDT_D3DCOLOR: *size = GL_BGRA; *type = GL_UNSIGNED_BYTE; *normalized = GL_TRUE; break;
@@ -3199,22 +3163,6 @@ static void attribute_format(const struct vertex_element *element, GLint *size, 
 /* upload vertices [first, first + count) of every stream the declaration
 uses and point the attributes at them; attribute data then starts at
 vertex 0 of the uploaded range */
-#ifdef HALO_ANDROID
-/* ES has no BGRA attributes, so a stream with colours is swizzled as it is
-uploaded (stream_upload_swizzled) and cannot come from the mirror */
-static BOOL stream_has_colors(const struct vertex_shader_object *declaration, unsigned long stream)
-{
-	unsigned long index;
-
-	for (index = 0; index < declaration->element_count; index++)
-	{
-		if (declaration->elements[index].stream == stream && declaration->elements[index].type == D3DVSDT_D3DCOLOR)
-			return TRUE;
-	}
-	return FALSE;
-}
-#endif
-
 static void setup_streams(unsigned long first, unsigned long count)
 {
 	struct vertex_shader_object *declaration = device.vertex_shader;
@@ -3238,9 +3186,6 @@ static void setup_streams(unsigned long first, unsigned long count)
 		placed[stream] = TRUE;
 		stream_buffers[stream] = 0;
 		base = (unsigned long)PLATFORM_PHYSICAL_TO_VIRTUAL(device.streams[stream].data) + first * stride;
-#ifdef HALO_ANDROID
-		if (!stream_has_colors(declaration, stream))
-#endif
 		if (mirror_range(base, bytes, &stream_buffers[stream], &stream_offsets[stream], NULL))
 			continue;
 		stream_buffers[stream] = 0;
@@ -3263,11 +3208,7 @@ static void setup_streams(unsigned long first, unsigned long count)
 			const unsigned char *base = PLATFORM_PHYSICAL_TO_VIRTUAL(device.streams[stream].data);
 			unsigned long bytes = stride ? stride * count : 64;
 
-#ifdef HALO_ANDROID
-			stream_offsets[stream] = stream_upload_swizzled(declaration, stream, base + first * stride, bytes, stride);
-#else
 			stream_offsets[stream] = stream_upload(base + first * stride, bytes);
-#endif
 			stream_buffers[stream] = device.stream_buffer;
 			stats.streamed_bytes += bytes;
 		}
