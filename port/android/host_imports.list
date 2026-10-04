@@ -8,6 +8,7 @@ host_get_tp
 host_set_tp
 host_thread_create
 host_memory_watch_initialize
+host_memory_watch_state
 host_memory_watch_protect
 host_memory_watch_generation
 host_memory_watch_serial

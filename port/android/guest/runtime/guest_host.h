@@ -41,6 +41,9 @@ int host_thread_create(unsigned int thread, unsigned int stack_size);
 /* ---------- memory write tracking (port/linux/src/memory_watch.c) */
 
 void host_memory_watch_initialize(void);
+/* low guest address of uint32_t state[1 + contiguous_page_count]:
+   state[0] is the global serial, the remainder are page generations */
+unsigned int host_memory_watch_state(void);
 void host_memory_watch_protect(unsigned int address, unsigned int size);
 unsigned int host_memory_watch_generation(unsigned int address, unsigned int size);
 unsigned int host_memory_watch_serial(void);
