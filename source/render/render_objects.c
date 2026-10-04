@@ -259,6 +259,26 @@ short structure_visibility_find_objects(
 extern boolean debug_objects;
 extern short debug_rasterizer_light_count;
 
+#ifdef HALO_ANDROID
+/* port/linux/src/port_config.c -- kept as narrow declarations here, as the
+native game-side interpolation code does. */
+int config_boolean(const char *name);
+long config_integer(const char *name);
+double config_real(const char *name);
+
+static long android_entity_lighting_interval(void)
+{
+	long ticks = config_integer("display.entity_lighting_interval");
+
+	return PIN(ticks, 1, 10);
+}
+
+static real android_shadow_detail(void)
+{
+	return PIN((real)config_real("display.shadow_detail"), 0.25f, 1.0f);
+}
+#endif
+
 /* ---------- globals */
 
 boolean render_shadows = TRUE;
@@ -377,7 +397,11 @@ void render_object_shadows(
 {
 	profile_enter(render_object_shadows_section);
 
-	if (render_shadows)
+	if (render_shadows
+#ifdef HALO_ANDROID
+		&& config_boolean("display.object_shadows")
+#endif
+	)
 	{
 		struct object_render_data data;
 
@@ -621,9 +645,16 @@ static void render_object_list(
 				}
 				else
 				{
+					real shadow_detail = 0.3f;
+#ifdef HALO_ANDROID
+					/* Projected shadows are a second skinned model pass and are
+					then projected onto dynamically-built BSP triangles. Their
+					silhouette does not need the visible model's full LOD. */
+					shadow_detail *= android_shadow_detail();
+#endif
 					render_model(
 						definition->object.model.index,
-						level_of_detail_pixels * 0.3f,
+						level_of_detail_pixels * shadow_detail,
 						object_get_node_matrices(object_index),
 						object->object.region_permutations,
 						object->object.outgoing_change_colors,
@@ -902,18 +933,23 @@ static void object_render_state_refresh(
 
 	if (TEST_FLAG(object_get(object_index)->object.flags, _object_static_lighting_recompute_bit))
 	{
+		long minimum_age;
+
 		if (level_of_detail_pixels > OBJECT_RENDER_STATE_LARGE_PIXELS)
-		{
-			refresh = refresh_age > 0;
-		}
+			minimum_age = 1;
 		else if (level_of_detail_pixels > OBJECT_RENDER_STATE_SMALL_PIXELS)
-		{
-			refresh = refresh_age > OBJECT_RENDER_STATE_LARGE_INTERVAL;
-		}
+			minimum_age = OBJECT_RENDER_STATE_LARGE_INTERVAL + 1;
 		else
-		{
-			refresh = refresh_age > OBJECT_RENDER_STATE_SMALL_INTERVAL;
-		}
+			minimum_age = OBJECT_RENDER_STATE_SMALL_INTERVAL + 1;
+#ifdef HALO_ANDROID
+		/* The original close-object rule resamples static BSP/lightmap
+		lighting every 30 Hz game tick. That sampling performs several BSP
+		raycasts per object. Keep dynamic point lights frame-current below,
+		but cap the expensive static resample rate on mobile. */
+		if (minimum_age < android_entity_lighting_interval())
+			minimum_age = android_entity_lighting_interval();
+#endif
+		refresh = refresh_age >= minimum_age;
 	}
 
 	if (refresh &&
@@ -1111,11 +1147,10 @@ static void render_object(
 			real level_of_detail_pixels;
 			real shadow_darkness;
 
+			level_of_detail_pixels = object_get_level_of_detail_pixels(data->object_index);
 			data->lighting = object_get_cached_render_lighting(
 				data->object_index,
-				object_get_level_of_detail_pixels(data->object_index));
-
-			level_of_detail_pixels = object_get_level_of_detail_pixels(data->object_index);
+				level_of_detail_pixels);
 			shadow_darkness = 1.f - real_rgb_color_brightness(&data->lighting->shadow_color);
 
 			if (level_of_detail_pixels > OBJECT_SHADOW_MINIMUM_PIXELS &&

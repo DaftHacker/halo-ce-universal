@@ -87,6 +87,17 @@ static const struct config_setting config_settings[] =
 	{ "display.interpolation", _config_boolean, "true", "HALO_INTERPOLATION", _environment_value, _platform_all,
 		"Draw a frame for every display refresh, blending between the game's 30\n"
 		"ticks a second; false keeps the original 30 frames a second." },
+	{ "display.object_shadows", _config_boolean, "true", "HALO_OBJECT_SHADOWS", _environment_value, _platform_android,
+		"Draw projected object shadows. They are expensive on Android because each\n"
+		"shadow renders the model and builds environment geometry for projection." },
+	{ "display.shadow_detail", _config_real, "0.6", "HALO_SHADOW_DETAIL", _environment_value, _platform_android,
+		"Android projected-shadow model detail, 0.25 to 1.0. Lower values choose a\n"
+		"cheaper model LOD for the shadow silhouette; the visible model is unchanged." },
+	{ "display.entity_lighting_interval", _config_integer, "2", "HALO_ENTITY_LIGHTING_INTERVAL", _environment_value,
+		_platform_android,
+		"Minimum game ticks between expensive static-lighting resamples for nearby\n"
+		"objects, 1 to 10. 1 is the original 30 Hz behavior; 2 is at most 15 Hz.\n"
+		"Dynamic point-light selection still updates normally." },
 	{ "display.direct_camera", _config_boolean, "true", "HALO_DIRECT_CAMERA", _environment_value, _platform_desktop,
 		"In first person, point the view where the player aims now instead of\n"
 		"where the last tick left it: the view turns the frame the mouse moves,\n"

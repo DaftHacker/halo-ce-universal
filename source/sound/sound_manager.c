@@ -3218,18 +3218,21 @@ static short source_audible(
 			}
 		}
 
-		if (nearest_listener_index != NONE)
+		/* Obstruction can cast through structure and objects. Do the cheap
+		distance rejection first: far entity sounds cannot become audible
+		regardless of obstruction, so raycasting them only burns CPU. */
+		if (nearest_distance_squared > maximum_distance * maximum_distance)
+		{
+			nearest_listener_index = NONE;
+		}
+		else if (nearest_listener_index != NONE)
 		{
 			compute_sound_obstruction(
 				nearest_listener_index,
 				source,
 				square_root(nearest_distance_squared));
-		}
-
-		if (nearest_distance_squared > maximum_distance * maximum_distance ||
-			source->occlusion == 1.f)
-		{
-			nearest_listener_index = NONE;
+			if (source->occlusion == 1.f)
+				nearest_listener_index = NONE;
 		}
 	}
 
