@@ -96,6 +96,9 @@ int host_gl_has_extension(const char *name);
 unsigned int host_gl_read_buffer_word(unsigned int buffer, unsigned int offset);
 /* unsynchronized write into the buffer bound to target */
 void host_gl_buffer_write(unsigned int target, unsigned int offset, unsigned int size, const void *data);
+/* writes count {relative offset, byte count, guest address} triples */
+void host_gl_buffer_write_batch(unsigned int target, unsigned int offset, unsigned int size,
+	unsigned int count, const unsigned int *writes);
 /* fences the GPU work queued so far as that of ring slot `slot`; waits for
 the GPU to finish the work last fenced for a slot */
 void host_gl_fence_frame(unsigned int slot);

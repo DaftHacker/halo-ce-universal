@@ -134,3 +134,41 @@ void host_gl_buffer_write(uint32_t target, uint32_t offset, uint32_t size, const
 	memcpy(mapping, data, size);
 	glUnmapBuffer(target);
 }
+
+/* A draw can use several dynamic vertex streams. Map their whole reserved
+range once instead of crossing the guest/host boundary and map/unmapping
+once per stream. Each write is { relative offset, byte count, guest address }. */
+void host_gl_buffer_write_batch(uint32_t target, uint32_t offset, uint32_t size,
+	uint32_t count, const uint32_t *writes)
+{
+	void *mapping;
+	uint32_t index;
+
+	if (!size || !count)
+		return;
+	mapping = glMapBufferRange(target, offset, size,
+		GL_MAP_WRITE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
+	if (mapping)
+	{
+		for (index = 0; index < count; index++)
+		{
+			uint32_t relative = writes[index * 3];
+			uint32_t length = writes[index * 3 + 1];
+			uint32_t address = writes[index * 3 + 2];
+
+			if (relative <= size && length <= size - relative)
+				memcpy((unsigned char *)mapping + relative, (const void *)(uintptr_t)address, length);
+		}
+		glUnmapBuffer(target);
+		return;
+	}
+	for (index = 0; index < count; index++)
+	{
+		uint32_t relative = writes[index * 3];
+		uint32_t length = writes[index * 3 + 1];
+		uint32_t address = writes[index * 3 + 2];
+
+		if (relative <= size && length <= size - relative)
+			glBufferSubData(target, offset + relative, length, (const void *)(uintptr_t)address);
+	}
+}

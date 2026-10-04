@@ -575,6 +575,27 @@ static void texture_dump(GLenum target, const struct xgpu_texture_description *d
 }
 #endif
 
+static unsigned long *upload_scratch;
+static unsigned long upload_scratch_texels;
+
+static unsigned long *upload_scratch_get(unsigned long texels)
+{
+	if (texels > upload_scratch_texels)
+	{
+		unsigned long capacity = upload_scratch_texels ? upload_scratch_texels : 4096;
+		unsigned long *grown;
+
+		while (capacity < texels)
+			capacity *= 2;
+		grown = realloc(upload_scratch, capacity * sizeof(unsigned long));
+		if (!grown)
+			return NULL;
+		upload_scratch = grown;
+		upload_scratch_texels = capacity;
+	}
+	return upload_scratch;
+}
+
 static void upload(GLuint texture, GLenum target, const struct xgpu_texture_description *description,
 	const unsigned char *base, const D3DCOLOR *palette)
 {
@@ -589,7 +610,9 @@ static void upload(GLuint texture, GLenum target, const struct xgpu_texture_desc
 #ifdef HALO_ANDROID
 	decode_compressed = description->compressed && !xgpu_capabilities.s3tc;
 #endif
-	converted = description->compressed && !decode_compressed ? NULL : malloc(largest * sizeof(unsigned long));
+	converted = description->compressed && !decode_compressed ? NULL : upload_scratch_get(largest);
+	if ((!description->compressed || decode_compressed) && !converted)
+		return;
 	glBindTexture(target, texture);
 	xgpu_gl_state_invalidate();
 #ifdef HALO_ANDROID
@@ -637,7 +660,6 @@ static void upload(GLuint texture, GLenum target, const struct xgpu_texture_desc
 			}
 		}
 	}
-	free(converted);
 	texture_dump(target, description);
 }
 

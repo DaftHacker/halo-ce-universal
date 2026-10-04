@@ -35,6 +35,8 @@ extern struct xgpu_capabilities xgpu_capabilities;
 int host_gl_has_extension(const char *name);
 unsigned int host_gl_read_buffer_word(unsigned int buffer, unsigned int offset);
 void host_gl_buffer_write(unsigned int target, unsigned int offset, unsigned int size, const void *data);
+void host_gl_buffer_write_batch(unsigned int target, unsigned int offset, unsigned int size,
+	unsigned int count, const unsigned int *writes);
 void host_gl_fence_frame(unsigned int slot);
 void host_gl_wait_frame(unsigned int slot);
 #endif

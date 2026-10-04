@@ -266,11 +266,16 @@ functions of OpenGL ES 3.2 if they are available:
 - `D3DCOLOR` vertex attributes stay in their Xbox BGRA byte order in guest
   memory; generated vertex shaders swizzle them to RGBA. This lets color
   streams use the same mirrored-buffer path as other static vertex data.
-- Quad-list effects reuse generated index storage instead of allocating and
-  rebuilding it for every sprite batch. ES 3.0/3.1 index rebasing also keeps
-  reusable scratch storage.
+- Sequential quad-list effects keep their triangle indices in a static GPU
+  buffer. Indexed quad conversion and ES 3.0/3.1 rebasing keep reusable CPU
+  scratch storage.
 - Dynamic vertex and index data goes into a ring of three buffers, one for
-  each frame. On Mali, other methods used too much memory.
+  each frame. A draw's dynamic vertex streams are copied through one host
+  call and one mapped range instead of mapping once per stream. On Mali,
+  other buffering methods used too much memory.
+- The texture cache reads memory-watch generations from shared low memory
+  instead of crossing the guest/host ABI for every lookup. CPU-decoded
+  texture uploads also reuse their conversion buffer.
 - On OpenGL ES 3.2, indexed draws use a base vertex. Before 3.2, the CPU
   changes the indices.
 - On OpenGL ES 3.1 and later, the visibility tests (lens flares) count
@@ -332,8 +337,12 @@ CPU-limited devices:
   and `-1` disables the software cap.
 
 For diagnosis, `display.interpolation = false` keeps the original 30 rendered
-frames per second. If that materially improves audio or frame pacing, the
-device is limited by per-frame CPU/render work rather than game simulation.
+frames per second. It also avoids snapshotting and blending every rendered
+object's node matrices between 30 Hz simulation ticks. On hardware that does
+not sustain more than 30 FPS, leaving interpolation off can save substantial
+CPU time as enemy counts rise. If a long frame makes the camera or character
+appear to jump for a moment, compare the same scene with interpolation off to
+separate interpolation/frame-pacing behavior from game simulation.
 
 ## Find problems
 

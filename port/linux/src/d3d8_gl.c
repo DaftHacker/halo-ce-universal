@@ -347,6 +347,9 @@ struct gl_device
 	unsigned long stream_offset;
 	GLuint index_buffer;
 	unsigned long index_offset;
+	/* Sequential quad lists (sprites/effects) share one static index buffer. */
+	GLuint quad_index_buffer;
+	unsigned long quad_index_quads;
 	GLuint samplers[D3DTSS_MAXSTAGES];
 
 	GLuint queries[VISIBILITY_TEST_SLOTS];
@@ -3171,6 +3174,11 @@ static void setup_streams(unsigned long first, unsigned long count)
 	BOOL placed[16] = { FALSE };
 	BOOL enabled[XGPU_VERTEX_ATTRIBUTE_COUNT] = { FALSE };
 	unsigned long index, total = 0;
+#ifdef HALO_ANDROID
+	const unsigned char *stream_sources[16] = { NULL };
+	unsigned long stream_sizes[16] = { 0 };
+	unsigned int writes[16 * 3];
+#endif
 
 	/* the mirror first; then one reservation for everything streamed */
 	for (index = 0; index < declaration->element_count; index++)
@@ -3189,9 +3197,42 @@ static void setup_streams(unsigned long first, unsigned long count)
 		if (mirror_range(base, bytes, &stream_buffers[stream], &stream_offsets[stream], NULL))
 			continue;
 		stream_buffers[stream] = 0;
+#ifdef HALO_ANDROID
+		stream_sources[stream] = (const unsigned char *)base;
+		stream_sizes[stream] = bytes;
+#endif
 		total += (bytes + 15) & ~15UL;
 	}
 	stream_reserve(total);
+#ifdef HALO_ANDROID
+	if (total)
+	{
+		unsigned long batch_offset = device.stream_offset;
+		unsigned int write_count = 0;
+		unsigned long stream;
+
+		state_array_buffer(device.stream_buffer);
+		for (stream = 0; stream < 16; stream++)
+		{
+			unsigned long bytes = stream_sizes[stream];
+			unsigned long aligned;
+
+			if (!bytes)
+				continue;
+			aligned = (bytes + 15) & ~15UL;
+			stream_offsets[stream] = device.stream_offset;
+			stream_buffers[stream] = device.stream_buffer;
+			writes[write_count * 3] = (unsigned int)(device.stream_offset - batch_offset);
+			writes[write_count * 3 + 1] = (unsigned int)bytes;
+			writes[write_count * 3 + 2] = (unsigned int)(unsigned long)stream_sources[stream];
+			write_count++;
+			device.stream_offset += aligned;
+			stats.streamed_bytes += bytes;
+		}
+		host_gl_buffer_write_batch(GL_ARRAY_BUFFER, (unsigned int)batch_offset, (unsigned int)total,
+			write_count, writes);
+	}
+#endif
 	for (index = 0; index < declaration->element_count; index++)
 	{
 		const struct vertex_element *element = &declaration->elements[index];
@@ -3203,6 +3244,7 @@ static void setup_streams(unsigned long first, unsigned long count)
 
 		if (!device.streams[stream].data || element->type == D3DVSDT_NONE)
 			continue;
+#ifndef HALO_ANDROID
 		if (!stream_buffers[stream])
 		{
 			const unsigned char *base = PLATFORM_PHYSICAL_TO_VIRTUAL(device.streams[stream].data);
@@ -3212,6 +3254,7 @@ static void setup_streams(unsigned long first, unsigned long count)
 			stream_buffers[stream] = device.stream_buffer;
 			stats.streamed_bytes += bytes;
 		}
+#endif
 		if (element->type == D3DVSDT_NORMPACKED3)
 		{
 			state_attribute_pointer(element->reg, stream_buffers[stream], 1, GL_UNSIGNED_INT, GL_FALSE, TRUE,
@@ -3317,6 +3360,40 @@ static WORD *quad_indices(const WORD *indices, unsigned long count, unsigned lon
 	return result;
 }
 
+/* Sequential quad lists do not depend on game memory. Keep a power-of-two
+capacity in a GL buffer so particle/sprite draws avoid dynamic index uploads. */
+static BOOL sequential_quad_indices(unsigned long vertex_count, unsigned long *index_count)
+{
+	unsigned long quads = vertex_count / 4;
+	unsigned long capacity, generated_count;
+	WORD *indices;
+
+	*index_count = quads * 6;
+	if (!quads)
+		return FALSE;
+	if (quads <= device.quad_index_quads)
+	{
+		state_element_array_buffer(device.quad_index_buffer);
+		return TRUE;
+	}
+	capacity = device.quad_index_quads ? device.quad_index_quads : 64;
+	while (capacity < quads)
+		capacity *= 2;
+	if (capacity > 16384)
+		capacity = 16384;
+	if (capacity < quads)
+		return FALSE;
+	indices = quad_indices(NULL, capacity * 4, &generated_count);
+	if (!indices)
+		return FALSE;
+	if (!device.quad_index_buffer)
+		glGenBuffers(1, &device.quad_index_buffer);
+	state_element_array_buffer(device.quad_index_buffer);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, (GLsizeiptr)(generated_count * sizeof(WORD)), indices, GL_STATIC_DRAW);
+	device.quad_index_quads = capacity;
+	return TRUE;
+}
+
 void WINAPI D3DDevice_SetStreamSource(UINT stream_number, D3DVertexBuffer *stream_data, UINT stride)
 {
 	if (stream_number >= 16)
@@ -3340,11 +3417,9 @@ void WINAPI D3DDevice_DrawVertices(D3DPRIMITIVETYPE primitive_type, UINT start_v
 	if (primitive_type == D3DPT_QUADLIST)
 	{
 		unsigned long count;
-		WORD *indices = quad_indices(NULL, vertex_count, &count);
 
-		if (indices)
-			glDrawElements(GL_TRIANGLES, (GLsizei)count, GL_UNSIGNED_SHORT,
-				(const void *)index_upload(indices, count * sizeof(WORD)));
+		if (sequential_quad_indices(vertex_count, &count))
+			glDrawElements(GL_TRIANGLES, (GLsizei)count, GL_UNSIGNED_SHORT, NULL);
 	}
 	else
 	{
@@ -3463,11 +3538,9 @@ void WINAPI D3DDevice_End(void)
 	if (type == D3DPT_QUADLIST)
 	{
 		unsigned long index_count;
-		WORD *indices = quad_indices(NULL, count, &index_count);
 
-		if (indices)
-			glDrawElements(GL_TRIANGLES, (GLsizei)index_count, GL_UNSIGNED_SHORT,
-				(const void *)index_upload(indices, index_count * sizeof(WORD)));
+		if (sequential_quad_indices(count, &index_count))
+			glDrawElements(GL_TRIANGLES, (GLsizei)index_count, GL_UNSIGNED_SHORT, NULL);
 	}
 	else
 	{

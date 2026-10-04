@@ -477,6 +477,9 @@ long host_guest_mprotect(uint64_t address, uint64_t size, int protection)
 static uint8_t page_protected[WATCH_PAGE_COUNT];
 static uint32_t page_generation[WATCH_PAGE_COUNT];
 static volatile uint32_t current_generation = 1;
+/* Read-only-by-convention mirror in guest-addressable low memory:
+   [0] is the global serial and [1 + page] is that page's generation. */
+static volatile uint32_t *shared_watch_state;
 static int watch_active;
 
 static int in_window(uint64_t address)
@@ -491,7 +494,14 @@ static uint64_t watch_page(uint64_t address)
 
 static void mark_written(uint64_t page)
 {
-	page_generation[page] = __sync_add_and_fetch(&current_generation, 1);
+	uint32_t generation = __sync_add_and_fetch(&current_generation, 1);
+
+	page_generation[page] = generation;
+	if (shared_watch_state)
+	{
+		shared_watch_state[0] = generation;
+		shared_watch_state[1 + page] = generation;
+	}
 	page_protected[page] = 0;
 	mprotect((void *)(HALO_GUEST_WINDOW_BASE + page * PAGE), PAGE, PROT_READ | PROT_WRITE);
 }
@@ -598,7 +608,25 @@ void host_install_signal_handlers(void)
 
 void host_memory_watch_initialize(void)
 {
+	uint64_t page;
+
+	if (!shared_watch_state)
+	{
+		size_t bytes = (WATCH_PAGE_COUNT + 1) * sizeof(uint32_t);
+
+		shared_watch_state = host_low_map(bytes, PROT_READ | PROT_WRITE);
+		if (!shared_watch_state)
+			host_fatal("cannot allocate the memory-watch state");
+		shared_watch_state[0] = current_generation;
+		for (page = 0; page < WATCH_PAGE_COUNT; page++)
+			shared_watch_state[1 + page] = page_generation[page];
+	}
 	watch_active = 1;
+}
+
+uint32_t host_memory_watch_state(void)
+{
+	return (uint32_t)(uintptr_t)shared_watch_state;
 }
 
 void host_memory_watch_protect(uint32_t address, uint32_t size)
@@ -678,7 +706,14 @@ void host_memory_watch_forget(uint32_t address, uint32_t size)
 		last = WATCH_PAGE_COUNT - 1;
 	for (page = first; page <= last; page++)
 	{
+		uint32_t generation = __sync_add_and_fetch(&current_generation, 1);
+
 		page_protected[page] = 0;
-		page_generation[page] = __sync_add_and_fetch(&current_generation, 1);
+		page_generation[page] = generation;
+		if (shared_watch_state)
+		{
+			shared_watch_state[0] = generation;
+			shared_watch_state[1 + page] = generation;
+		}
 	}
 }
