@@ -3248,14 +3248,59 @@ static GLenum primitive_mode(D3DPRIMITIVETYPE type)
 	}
 }
 
-/* quads become two triangles each */
+/* quads become two triangles each. Effects issue many small quad draws, so
+keep reusable index storage rather than malloc/free on every sprite batch.
+Sequential (non-indexed) quads are generated only when a larger draw first
+needs them; indexed quads reuse a scratch buffer. */
 static WORD *quad_indices(const WORD *indices, unsigned long count, unsigned long *out_count)
 {
+	static WORD *sequential;
+	static unsigned long sequential_quads;
+	static WORD *scratch;
+	static unsigned long scratch_quads;
 	unsigned long quads = count / 4;
-	WORD *result = malloc(quads * 6 * sizeof(WORD) + 2);
-	unsigned long quad;
+	WORD *result;
+	unsigned long quad, first;
 
-	for (quad = 0; quad < quads; quad++)
+	*out_count = quads * 6;
+	if (!quads)
+		return NULL;
+	if (!indices)
+	{
+		first = sequential_quads;
+		if (quads > sequential_quads)
+		{
+			WORD *grown = realloc(sequential, quads * 6 * sizeof(WORD));
+
+			if (!grown)
+			{
+				*out_count = 0;
+				return NULL;
+			}
+			sequential = grown;
+			sequential_quads = quads;
+		}
+		result = sequential;
+	}
+	else
+	{
+		first = 0;
+		if (quads > scratch_quads)
+		{
+			WORD *grown = realloc(scratch, quads * 6 * sizeof(WORD));
+
+			if (!grown)
+			{
+				*out_count = 0;
+				return NULL;
+			}
+			scratch = grown;
+			scratch_quads = quads;
+		}
+		result = scratch;
+	}
+
+	for (quad = first; quad < quads; quad++)
 	{
 		WORD v0 = indices ? indices[quad * 4] : (WORD)(quad * 4);
 		WORD v1 = indices ? indices[quad * 4 + 1] : (WORD)(quad * 4 + 1);
@@ -3269,7 +3314,6 @@ static WORD *quad_indices(const WORD *indices, unsigned long count, unsigned lon
 		result[quad * 6 + 4] = v2;
 		result[quad * 6 + 5] = v3;
 	}
-	*out_count = quads * 6;
 	return result;
 }
 
@@ -3298,9 +3342,9 @@ void WINAPI D3DDevice_DrawVertices(D3DPRIMITIVETYPE primitive_type, UINT start_v
 		unsigned long count;
 		WORD *indices = quad_indices(NULL, vertex_count, &count);
 
-		glDrawElements(GL_TRIANGLES, (GLsizei)count, GL_UNSIGNED_SHORT,
-			(const void *)index_upload(indices, count * sizeof(WORD)));
-		free(indices);
+		if (indices)
+			glDrawElements(GL_TRIANGLES, (GLsizei)count, GL_UNSIGNED_SHORT,
+				(const void *)index_upload(indices, count * sizeof(WORD)));
 	}
 	else
 	{
@@ -3314,6 +3358,10 @@ void WINAPI D3DDevice_DrawIndexedVertices(D3DPRIMITIVETYPE primitive_type, UINT 
 	unsigned long minimum, maximum, index, count, generation = 0, index_offset = 0;
 	WORD *indices = NULL;
 	const WORD *source = index_data;
+#ifdef HALO_ANDROID
+	static WORD *rebase_scratch;
+	static unsigned long rebase_capacity;
+#endif
 	GLuint index_buffer = 0;
 	BOOL mirrored;
 
@@ -3342,27 +3390,35 @@ void WINAPI D3DDevice_DrawIndexedVertices(D3DPRIMITIVETYPE primitive_type, UINT 
 	if (primitive_type == D3DPT_QUADLIST)
 	{
 		indices = quad_indices(index_data, vertex_count, &count);
+		if (!indices)
+			return;
 		source = indices;
 	}
 #ifdef HALO_ANDROID
 	if (!xgpu_capabilities.base_vertex)
 	{
-		/* the indices are copied anyway: rebase them */
-		WORD *rebased = malloc(count * sizeof(WORD) + 2);
+		/* ES before 3.2 needs rebased indices. Effects can hit this path many
+		times per frame, so grow one renderer scratch buffer instead of using
+		the heap for every draw. */
+		if (count > rebase_capacity)
+		{
+			WORD *grown = realloc(rebase_scratch, count * sizeof(WORD));
 
+			if (!grown)
+				return;
+			rebase_scratch = grown;
+			rebase_capacity = count;
+		}
 		for (index = 0; index < count; index++)
-			rebased[index] = (WORD)(source[index] - minimum);
+			rebase_scratch[index] = (WORD)(source[index] - minimum);
 		glDrawElements(primitive_mode(primitive_type), (GLsizei)count, GL_UNSIGNED_SHORT,
-			(const void *)index_upload(rebased, count * sizeof(WORD)));
-		free(rebased);
-		free(indices);
+			(const void *)index_upload(rebase_scratch, count * sizeof(WORD)));
 		return;
 	}
 #endif
 	(void)index;
 	glDrawElementsBaseVertex(primitive_mode(primitive_type), (GLsizei)count, GL_UNSIGNED_SHORT,
 		(const void *)index_upload(source, count * sizeof(WORD)), -(GLint)minimum);
-	free(indices);
 }
 
 /* ---------- immediate mode */
@@ -3409,9 +3465,9 @@ void WINAPI D3DDevice_End(void)
 		unsigned long index_count;
 		WORD *indices = quad_indices(NULL, count, &index_count);
 
-		glDrawElements(GL_TRIANGLES, (GLsizei)index_count, GL_UNSIGNED_SHORT,
-			(const void *)index_upload(indices, index_count * sizeof(WORD)));
-		free(indices);
+		if (indices)
+			glDrawElements(GL_TRIANGLES, (GLsizei)index_count, GL_UNSIGNED_SHORT,
+				(const void *)index_upload(indices, index_count * sizeof(WORD)));
 	}
 	else
 	{

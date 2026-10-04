@@ -266,6 +266,9 @@ functions of OpenGL ES 3.2 if they are available:
 - `D3DCOLOR` vertex attributes stay in their Xbox BGRA byte order in guest
   memory; generated vertex shaders swizzle them to RGBA. This lets color
   streams use the same mirrored-buffer path as other static vertex data.
+- Quad-list effects reuse generated index storage instead of allocating and
+  rebuilding it for every sprite batch. ES 3.0/3.1 index rebasing also keeps
+  reusable scratch storage.
 - Dynamic vertex and index data goes into a ring of three buffers, one for
   each frame. On Mali, other methods used too much memory.
 - On OpenGL ES 3.2, indexed draws use a base vertex. Before 3.2, the CPU
@@ -319,7 +322,10 @@ CPU-limited devices:
 
 - `audio.buffer_frames = 1024` is the Android default. The value is clamped
   to 256..4096 frames. Increasing it can hide short scheduler stalls; lowering
-  it reduces audio latency but makes underruns more likely.
+  it reduces audio latency but makes underruns more likely. The software mixer
+  keeps an O(1) playback cursor through queued packets and uses an inexpensive
+  soft limiter so dense combat audio does not multiply queue scans or libm
+  calls per sample.
 - `display.max_fps = N` enables a software cap on Android for positive values,
   even with vsync enabled. A sustainable cap such as 30, 45 or 60 can improve
   frame pacing and leave CPU time for audio. `0` keeps normal platform pacing
