@@ -294,19 +294,16 @@ static void android_entity_settings_refresh(void)
 
 static boolean android_object_shadows(void)
 {
-	android_entity_settings_refresh();
 	return android_entity_settings.object_shadows;
 }
 
 static long android_entity_lighting_interval(void)
 {
-	android_entity_settings_refresh();
 	return android_entity_settings.lighting_interval;
 }
 
 static real android_shadow_detail(void)
 {
-	android_entity_settings_refresh();
 	return android_entity_settings.shadow_detail;
 }
 #endif
@@ -396,6 +393,9 @@ void render_objects(
 	boolean first_person_pass = FALSE;
 
 	profile_enter(render_objects_section);
+#ifdef HALO_ANDROID
+	android_entity_settings_refresh();
+#endif
 
 	rasterizer_models_begin(FALSE);
 	find_rendered_objects();
@@ -428,6 +428,9 @@ void render_object_shadows(
 	void)
 {
 	profile_enter(render_object_shadows_section);
+#ifdef HALO_ANDROID
+	android_entity_settings_refresh();
+#endif
 
 	if (render_shadows
 #ifdef HALO_ANDROID
