@@ -176,6 +176,9 @@ struct xgpu_render_target
 	unsigned long gl_width, gl_height;
 	/* changes whenever the color target is selected for drawing */
 	unsigned long written;
+	/* set once this target is used as a mip-composite source; ordinary
+	render targets avoid all composite-cache write bookkeeping */
+	BOOL composite_source;
 };
 
 /* the GL texture holding a render target with this physical address, or 0 */
