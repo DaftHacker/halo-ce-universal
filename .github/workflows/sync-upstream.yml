@@ -25,7 +25,7 @@ jobs:
 
       - name: Fetch upstream
         run: |
-          git remote add upstream https://github.com/cybersecurity/halo-ce-universal.git
+          git remote add upstream https://github.com/OpenCommunityEdition/OpenCE.git
           git fetch --no-tags upstream main
 
       - name: Merge upstream main

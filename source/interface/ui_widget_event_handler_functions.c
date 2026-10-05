@@ -4074,8 +4074,8 @@ static boolean player_profile_initialize_controller_settings(
 		while (option_spinner && option_spinner->type != 2)
 			option_spinner = option_spinner->next;
 		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3816, option_spinner, "expected 'button config' option spinner list");
-		/* The retail map contains five button-layout strings. Add the fork's
-		   sixth preset to this spinner at runtime without changing map data. */
+		/* The retail map exposes five button layouts. The fork adds Bumper
+		   Jumper as a sixth profile preset without replacing map data. */
 		if (option_spinner->generated_count < NUMBER_OF_BUTTON_PRESETS)
 			option_spinner->generated_count = NUMBER_OF_BUTTON_PRESETS;
 		switch (profile->controller_settings.button_preset)
@@ -5968,12 +5968,18 @@ boolean ui_widget_port_gametype_choose(
 	return TRUE;
 }
 
-/* hosting (as the Xbox's server list's Y) */
+/* hosting (as the Xbox's server list's Y): always a new game. A game made
+before and backed out of keeps its server (the lobby's last player leaving
+pauses it: netgame_unjoin_player), and network_game_start_new_server joins
+only a server it makes, so the client it made for that one never joined it
+and the lobby had nobody in it */
 boolean ui_widget_port_host(
 	struct widget_instance *widget,
 	struct event_record *event,
 	boolean *widget_deleted)
 {
+	dispose_global_network_game_client();
+	dispose_global_network_game_server();
 	return network_game_start_new_server(widget, event, widget_deleted);
 }
 
