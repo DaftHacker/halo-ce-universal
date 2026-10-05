@@ -76,6 +76,7 @@ their handlers open opens.
 #include "text/unicode.h"
 
 #include "halo_menus.h"
+#include "halo_port_limits.h"
 /* (internet play's server browser: the platform layer's) */
 #include "../src/p2p.h"
 
@@ -85,6 +86,7 @@ their handlers open opens.
 
 /* the platform layer's (port/linux/src) */
 void platform_log(char const *format, ...);
+void platform_show_message(char const *title, char const *message);
 void platform_request_quit(void);
 char const *pc_menu_function_name(long function_index);
 char const *pc_menu_game_data_input_name(long function_index);
@@ -3218,8 +3220,13 @@ static void lobby_browser_update(struct widget_instance *list)
 		text_set(named(row, "server_item_type", 0), game_type_name(game->engine_type));
 		usnprintf(text, ROW_TEXT_LENGTH - 1, L"%d/%d", game->player_count, game->maximum_player_count);
 		text_set(named(row, "server_item_players", 0), text);
-		/* (no ping yet: its host is reached only on joining) */
-		text_set(named(row, "server_item_ping", 0), game->failed ? L"FAILED" : game->in_progress ? L"LIVE" : L"-");
+		/* (no ping yet: its host is reached only on joining). Show protocol
+		version mismatches rather than silently hiding their listings. */
+		if (game->version != HALO_PORT_NETWORK_VERSION)
+			usnprintf(text, ROW_TEXT_LENGTH - 1, L"V%d", game->version);
+		else
+			usnprintf(text, ROW_TEXT_LENGTH - 1, L"%s", game->failed ? L"FAILED" : game->in_progress ? L"LIVE" : L"-");
+		text_set(named(row, "server_item_ping", 0), text);
 		visible_set(named(row, "server_item_locked", 0), !game->open);
 		visible_set(named(row, "server_item_dedicated", 0), FALSE);
 		visible_set(named(row, "server_item_classic", 0), FALSE);
@@ -3295,9 +3302,18 @@ static void lobby_browser_update(struct widget_instance *list)
 			wchar_t gametype[P2P_LISTING_GAMETYPE_SIZE + 1];
 
 			text_to_wide(game->gametype, gametype, NUMBEROF(gametype));
-			usnprintf(text, NUMBEROF(text) - 1, L"%s: %d %s of %d%s", gametype, game->player_count,
-				game->player_count == 1 ? L"player" : L"players", game->maximum_player_count,
-				!game->open ? L", full or starting" : game->in_progress ? L", under way" : L"");
+			if (game->version != HALO_PORT_NETWORK_VERSION)
+			{
+				usnprintf(text, NUMBEROF(text) - 1, L"%s: %d %s of %d, network v%d (this build v%d)",
+					gametype, game->player_count, game->player_count == 1 ? L"player" : L"players",
+					game->maximum_player_count, game->version, HALO_PORT_NETWORK_VERSION);
+			}
+			else
+			{
+				usnprintf(text, NUMBEROF(text) - 1, L"%s: %d %s of %d%s", gametype, game->player_count,
+					game->player_count == 1 ? L"player" : L"players", game->maximum_player_count,
+					!game->open ? L", full or starting" : game->in_progress ? L", under way" : L"");
+			}
 		}
 		else
 			text[0] = 0;
@@ -3374,6 +3390,18 @@ static boolean lobby_browser_select(struct widget_instance *widget, short contro
 	if (index >= lobby_browser.count)
 		return campaign_fail();
 	game = &lobby_browser.games[index];
+	if (game->version != HALO_PORT_NETWORK_VERSION)
+	{
+		char message[256];
+
+		csprintf(message,
+			game->version > HALO_PORT_NETWORK_VERSION ?
+				"This server uses network version %u. This build uses version %u. Update the game to join it." :
+				"This server uses network version %u. This build uses version %u. The host must update before it can be joined safely.",
+			(unsigned int)game->version, (unsigned int)HALO_PORT_NETWORK_VERSION);
+		platform_show_message("Halo: incompatible server", message);
+		return TRUE;
+	}
 	if (!game->open || !config_boolean("network.online") || !p2p_join_invite(game->invite))
 		return campaign_fail();
 	csmemcpy(lobby_browser.identifier, game->identifier, sizeof(lobby_browser.identifier));
