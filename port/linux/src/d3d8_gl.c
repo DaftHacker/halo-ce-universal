@@ -188,6 +188,8 @@ struct vertex_shader_object
 	/* A loaded NV2A program can be selected with more than one declaration.
 	The generated GL shader depends on that declaration's attribute masks. */
 	struct vertex_shader_variant *variants;
+	/* hot cache: most draws of a program repeat the same declaration */
+	struct vertex_shader_variant *last_variant;
 };
 
 /* ---------- programs */
@@ -1999,12 +2001,20 @@ static GLuint vertex_shader_get(struct vertex_shader_object *program, BOOL immed
 	unsigned long color_mask = immediate ? 0 : device.vertex_shader->color_mask;
 	struct vertex_shader_variant *variant;
 
+	variant = program->last_variant;
+	if (variant && variant->immediate == immediate &&
+		variant->packed_mask == packed_mask &&
+		variant->color_mask == color_mask)
+	{
+		return variant->shader;
+	}
 	for (variant = program->variants; variant; variant = variant->next)
 	{
 		if (variant->immediate == immediate &&
 			variant->packed_mask == packed_mask &&
 			variant->color_mask == color_mask)
 		{
+			program->last_variant = variant;
 			return variant->shader;
 		}
 	}
@@ -2038,6 +2048,7 @@ static GLuint vertex_shader_get(struct vertex_shader_object *program, BOOL immed
 		variant->shader = shader;
 		variant->next = program->variants;
 		program->variants = variant;
+		program->last_variant = variant;
 		return shader;
 	}
 }
@@ -3510,8 +3521,16 @@ static void setup_streams(unsigned long first, unsigned long count)
 			device.stream_offset += aligned;
 			stats.streamed_bytes += bytes;
 		}
-		host_gl_buffer_write_batch(GL_ARRAY_BUFFER, (unsigned int)batch_offset, (unsigned int)total,
-			write_count, writes);
+		if (write_count == 1)
+		{
+			host_gl_buffer_write(GL_ARRAY_BUFFER, (unsigned int)batch_offset, writes[1],
+				(const void *)(unsigned long)writes[2]);
+		}
+		else if (write_count > 1)
+		{
+			host_gl_buffer_write_batch(GL_ARRAY_BUFFER, (unsigned int)batch_offset, (unsigned int)total,
+				write_count, writes);
+		}
 	}
 #endif
 	for (index = 0; index < declaration->element_count; index++)
