@@ -265,17 +265,49 @@ native game-side interpolation code does. */
 int config_boolean(const char *name);
 long config_integer(const char *name);
 double config_real(const char *name);
+unsigned long config_changes(void);
+
+/* These settings are consulted from per-object render paths. Looking a
+setting up by name there costs more than the setting itself, so refresh the
+three values only when Settings/config.toml changes. */
+static struct
+{
+	unsigned long read_at;
+	boolean object_shadows;
+	long lighting_interval;
+	real shadow_detail;
+} android_entity_settings = { (unsigned long)-1, TRUE, 1, 1.0f };
+
+static void android_entity_settings_refresh(void)
+{
+	unsigned long changes = config_changes();
+
+	if (android_entity_settings.read_at == changes)
+		return;
+	android_entity_settings.read_at = changes;
+	android_entity_settings.object_shadows = config_boolean("display.object_shadows") != 0;
+	android_entity_settings.lighting_interval =
+		PIN(config_integer("display.entity_lighting_interval"), 1, 10);
+	android_entity_settings.shadow_detail =
+		PIN((real)config_real("display.shadow_detail"), 0.25f, 1.0f);
+}
+
+static boolean android_object_shadows(void)
+{
+	android_entity_settings_refresh();
+	return android_entity_settings.object_shadows;
+}
 
 static long android_entity_lighting_interval(void)
 {
-	long ticks = config_integer("display.entity_lighting_interval");
-
-	return PIN(ticks, 1, 10);
+	android_entity_settings_refresh();
+	return android_entity_settings.lighting_interval;
 }
 
 static real android_shadow_detail(void)
 {
-	return PIN((real)config_real("display.shadow_detail"), 0.25f, 1.0f);
+	android_entity_settings_refresh();
+	return android_entity_settings.shadow_detail;
 }
 #endif
 
@@ -399,7 +431,7 @@ void render_object_shadows(
 
 	if (render_shadows
 #ifdef HALO_ANDROID
-		&& config_boolean("display.object_shadows")
+		&& android_object_shadows()
 #endif
 	)
 	{
