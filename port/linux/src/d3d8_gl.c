@@ -162,6 +162,15 @@ struct vertex_element
 	unsigned short offset;
 };
 
+struct vertex_shader_variant
+{
+	unsigned long packed_mask;
+	unsigned long color_mask;
+	BOOL immediate;
+	GLuint shader;
+	struct vertex_shader_variant *next;
+};
+
 struct vertex_shader_object
 {
 	unsigned long signature;
@@ -174,8 +183,9 @@ struct vertex_shader_object
 	/* D3DCOLOR inputs are BGRA bytes in Xbox memory. OpenGL ES has no
 	BGRA vertex-attribute format, so the Android vertex shader swaps them. */
 	unsigned long color_mask;
-	/* [0] streams per the declaration, [1] immediate mode (all floats) */
-	GLuint shader[2];
+	/* A loaded NV2A program can be selected with more than one declaration.
+	The generated GL shader depends on that declaration's attribute masks. */
+	struct vertex_shader_variant *variants;
 };
 
 /* ---------- programs */
@@ -1824,21 +1834,32 @@ static unsigned long hash_words(const void *data, unsigned long size)
 
 static GLuint vertex_shader_get(struct vertex_shader_object *program, BOOL immediate)
 {
-	int variant = immediate ? 1 : 0;
+	unsigned long packed_mask = immediate ? 0 : device.vertex_shader->packed_mask;
+	unsigned long color_mask = immediate ? 0 : device.vertex_shader->color_mask;
+	struct vertex_shader_variant *variant;
 
-	if (!program->shader[variant])
+	for (variant = program->variants; variant; variant = variant->next)
+	{
+		if (variant->immediate == immediate &&
+			variant->packed_mask == packed_mask &&
+			variant->color_mask == color_mask)
+		{
+			return variant->shader;
+		}
+	}
 	{
 		char *source = nv2a_vertex_shader_to_glsl(program->instructions, program->instruction_count,
-			immediate ? 0 : device.vertex_shader->packed_mask,
-			immediate ? 0 : device.vertex_shader->color_mask);
+			packed_mask, color_mask);
+		GLuint shader = compile_shader(GL_VERTEX_SHADER, source, "vertex");
 
-		program->shader[variant] = compile_shader(GL_VERTEX_SHADER, source, "vertex");
 		if (debug_settings.dump_shaders)
 		{
 			char path[512];
 			FILE *file;
 
-			snprintf(path, sizeof(path), "%s/vs%03lu_%d.glsl", debug_settings.dump_shaders, program->id, variant);
+			snprintf(path, sizeof(path), "%s/vs%03lu_%d_%04lx_%04lx.glsl",
+				debug_settings.dump_shaders, program->id, immediate ? 1 : 0,
+				packed_mask, color_mask);
 			if ((file = fopen(path, "w")) != NULL)
 			{
 				fputs(source, file);
@@ -1846,8 +1867,18 @@ static GLuint vertex_shader_get(struct vertex_shader_object *program, BOOL immed
 			}
 		}
 		free(source);
+
+		variant = calloc(1, sizeof(*variant));
+		if (!variant)
+			return shader;
+		variant->packed_mask = packed_mask;
+		variant->color_mask = color_mask;
+		variant->immediate = immediate;
+		variant->shader = shader;
+		variant->next = program->variants;
+		program->variants = variant;
+		return shader;
 	}
-	return program->shader[variant];
 }
 
 typedef char pixel_shader_key_size_assert[sizeof(struct nv2a_pixel_shader_key) % 4 == 0 ? 1 : -1];
