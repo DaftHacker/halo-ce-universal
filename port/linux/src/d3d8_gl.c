@@ -1026,7 +1026,8 @@ static BOOL bind_targets(BOOL *has_depth)
 	if (color)
 	{
 		color->last_rendered = device.frame + 1;
-		color->target.written = ++render_target_write_serial;
+		if (color->target.composite_source)
+			color->target.written = ++render_target_write_serial;
 	}
 	/* viewports and clears are in the targets' units (render_target_get) */
 	target_scale[0] = color ? color->target.scale[0] : depth->target.scale[0];
@@ -2377,6 +2378,7 @@ static GLuint mip_composite_get(const struct xgpu_texture_description *descripti
 		if (!target || target->width != width || target->height != height ||
 			target->gl_width != width || target->gl_height != height)
 			break;
+		target->composite_source = TRUE;
 		targets[level] = target;
 		rendered_levels++;
 	}
