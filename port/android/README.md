@@ -134,8 +134,8 @@ These settings are only for Android:
 | --- | --- |
 | `display.screen_width` | The number of columns of the 480-line picture. `0` (the default): the shape of the display (1068 on a 20:9 phone). `640`: the 4:3 shape of the Xbox. |
 | `display.object_shadows` | Projected object shadows. Default `true`. Set `false` to diagnose or avoid the model + BSP projection work that scales with nearby players and AI. |
-| `display.shadow_detail` | Detail used only for projected shadow silhouettes, `0.25` to `1.0`; default `0.6`. The visible character model keeps its normal LOD. |
-| `display.entity_lighting_interval` | Minimum ticks between expensive static-lighting resamples for close objects, `1` to `10`; default `2` (at most 15 Hz). Dynamic lights are still refreshed normally. |
+| `display.shadow_detail` | Detail used only for projected shadow silhouettes, `0.25` to `1.0`; default `1.0` preserves upstream quality. The visible character model keeps its normal LOD. |
+| `display.entity_lighting_interval` | Minimum ticks between expensive static-lighting resamples for close objects, `1` to `10`; default `1` preserves upstream timing. Dynamic lights are still refreshed normally. |
 | `debug.sample_seconds` | Refer to "Find problems". |
 
 ### Nearby-player and AI performance
@@ -146,13 +146,15 @@ for lighting recomputation resample static BSP/lightmap lighting more often;
 and projected shadows render the object's model again before finding nearby
 BSP surfaces, building dynamic projection triangles and drawing them.
 
-On CPU-limited Android devices, first compare the same close-entity scene
-with `display.object_shadows = false`. A large improvement isolates the
-projected-shadow path. Keeping shadows enabled still uses the cheaper
-`display.shadow_detail = 0.6` default. Raising
-`display.entity_lighting_interval` from 2 to 3 or 4 further reduces
-close-entity BSP lighting raycasts, at the cost of slightly slower static
-lighting changes. This does not reduce AI, physics, animation, sound count
+Upstream now caches cluster light lists, rejects far lights before distance
+work, avoids repeated full-array/list scans, caches hot texture/render/shader
+lookups and tracks changed vertex constants more cheaply. Those optimizations
+preserve the same picture and are the default solution for many-visible-enemy
+scenes. The Android controls below are therefore fallback diagnostics only:
+set `display.object_shadows = false` to isolate projected shadows, lower
+`display.shadow_detail` from its quality-preserving 1.0 default only if
+needed, or raise `display.entity_lighting_interval` above its upstream-
+equivalent default of 1 only for additional CPU relief. This does not reduce AI, physics, animation, sound count
 or the visible model's geometry.
 
 3D sound audibility also scales with nearby entities. The native port rejects
