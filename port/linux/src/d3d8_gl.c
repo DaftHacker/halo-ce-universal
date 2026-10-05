@@ -372,6 +372,10 @@ struct gl_device
 	GLuint active_query;
 	BOOL visibility_test_active;
 #ifdef HALO_ANDROID
+	/* Query-based ES keeps the last completed value instead of making the
+	game spin while a new visibility result is still in flight. */
+	GLuint visibility_known[VISIBILITY_TEST_SLOTS];
+	BOOL visibility_unread[VISIBILITY_TEST_SLOTS];
 	/* with atomic counters: one counter per test, used as a ring; the
 	counter a test ended in, per result slot */
 	GLuint visibility_counters;
@@ -1574,6 +1578,9 @@ HRESULT WINAPI D3DDevice_EndVisibilityTest(DWORD index)
 	device.queries[0] = device.queries[index];
 	device.queries[index] = scratch;
 	device.query_pending[index] = TRUE;
+#ifdef HALO_ANDROID
+	device.visibility_unread[index] = TRUE;
+#endif
 #ifndef HALO_ANDROID
 	if (device.visibility_results)
 	{
@@ -1623,32 +1630,36 @@ HRESULT WINAPI D3DDevice_GetVisibilityTestResult(DWORD index, UINT *result, ULON
 		return S_OK;
 	}
 #endif
-#ifndef HALO_ANDROID
+#ifdef HALO_ANDROID
+	if (device.visibility_unread[index])
+	{
+		glGetQueryObjectuiv(device.queries[index], GL_QUERY_RESULT_AVAILABLE, &available);
+		if (available)
+		{
+			glGetQueryObjectuiv(device.queries[index], GL_QUERY_RESULT, &samples);
+			device.visibility_known[index] = samples ? VISIBILITY_ALL_SAMPLES : 0;
+			device.visibility_unread[index] = FALSE;
+		}
+	}
+	if (result)
+		*result = device.visibility_known[index];
+	return S_OK;
+#else
 	if (device.visibility_results)
 	{
-		/* the latest count the GPU has written: from this test, or while
-		the GPU is still behind, from the slot's earlier ones */
 		if (result)
 			*result = visibility_unscaled(device.visibility_results[index], index);
 		return S_OK;
 	}
-#endif
 	glGetQueryObjectuiv(device.queries[index], GL_QUERY_RESULT_AVAILABLE, &available);
 	if (!available)
 		return D3DERR_TESTINCOMPLETE;
 	glGetQueryObjectuiv(device.queries[index], GL_QUERY_RESULT, &samples);
-#ifdef HALO_ANDROID
-	/* ES only says whether any sample passed. The game divides the count by
-	the test's area (lens flare brightness, rasterizer_lights.c): report
-	more than any test covers, well below what would overflow there. */
-	if (samples)
-		samples = VISIBILITY_ALL_SAMPLES;
-#else
 	samples = visibility_unscaled(samples, index);
-#endif
 	if (result)
 		*result = samples;
 	return S_OK;
+#endif
 }
 
 /* ---------- render and texture stage state */
