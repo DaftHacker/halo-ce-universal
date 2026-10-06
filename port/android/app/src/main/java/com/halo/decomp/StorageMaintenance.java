@@ -14,14 +14,15 @@ import java.util.regex.Pattern;
  * removed here.
  */
 final class StorageMaintenance {
-    private static final int DATA_SCHEMA = 2;
+    private static final int DATA_SCHEMA = 3;
     private static final String PREFERENCES = "halo_storage_maintenance";
     private static final String KEY_VERSION = "version_code";
     private static final String KEY_SCHEMA = "data_schema";
 
     /* Halo's persistent precache files: z:\\cache%03d.map
-       (source/cache/cache_files_windows.c). They are generated and can always
-       be rebuilt from maps/, unlike z:/saved which contains real save data. */
+       (source/cache/cache_files_windows.c). They accelerate later loads, so
+       keep them unless DATA_SCHEMA changes. They can be rebuilt from maps/,
+       unlike z:/saved which contains real save data. */
     private static final Pattern MAP_CACHE = Pattern.compile("cache\\d{3}\\.map", Pattern.CASE_INSENSITIVE);
 
     private StorageMaintenance() {
@@ -48,12 +49,16 @@ final class StorageMaintenance {
         }
 
         /*
-         * The port's z:/cache###.map files survive process restarts and are
-         * derived entirely from maps/. Do not let a partially written or
-         * build-incompatible cache make the next launch fail. They are cheap
-         * in correctness terms to discard and are rebuilt as needed.
+         * Halo's z:/cache###.map files are useful persistent precaches and
+         * should survive ordinary launches and APK updates. Invalidate them
+         * only when this cache schema changes: that means the port changed in
+         * a way which may make previously generated cache maps unsafe. Once
+         * rebuilt for the current schema they are retained and reused.
          */
-        clearHaloMapCache(external);
+        if (previousSchema != DATA_SCHEMA) {
+            clearHaloMapCache(external);
+            android.util.Log.i("halo", "storage: rebuilt Halo map cache for schema " + DATA_SCHEMA);
+        }
 
         /*
          * Interrupted transactional writes are never valid persistent state.
