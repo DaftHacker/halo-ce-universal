@@ -311,6 +311,7 @@ struct vertex_shader_variant
 	unsigned long packed_mask;
 	unsigned long color_mask;
 	BOOL immediate;
+	BOOL lit;
 	GLuint shader;
 	struct vertex_shader_variant *next;
 };
