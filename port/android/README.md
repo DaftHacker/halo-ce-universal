@@ -44,6 +44,14 @@ The game needs the `maps/` folder from an Xbox disc image (`.xiso` or
 `.iso`) of any version of the game. The app extracts `maps/` from the disc
 image. The app keeps the data in `/sdcard/Android/data/com.halo.decomp/files`.
 
+Android startup removes disposable `save/z/cache###.map` files before
+starting the native game so an interrupted or incompatible precache cannot
+break the next launch. These files are rebuilt from `maps/` as needed.
+The launcher also clears Android's ordinary app cache when the APK or storage
+schema changes, and removes interrupted transactional files such as
+`maps.partial`. It deliberately preserves `maps/`, `save/z/saved/`,
+`save/u/`, and `config.toml`.
+
 To install the data with the app:
 
 1. Copy the disc image to the phone.
