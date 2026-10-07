@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
  * removed here.
  */
 final class StorageMaintenance {
-    private static final int DATA_SCHEMA = 3;
+    private static final int DATA_SCHEMA = 4;
     private static final String PREFERENCES = "halo_storage_maintenance";
     private static final String KEY_VERSION = "version_code";
     private static final String KEY_SCHEMA = "data_schema";
