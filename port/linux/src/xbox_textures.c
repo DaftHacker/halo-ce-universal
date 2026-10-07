@@ -686,7 +686,6 @@ static void upload(GLuint texture, GLenum target, const struct xgpu_texture_desc
 				{
 					platform_log("textures: no memory to convert a %lux%lux%lu texture; it is not drawn",
 						description->width, description->height, description->depth);
-					free(converted);
 					return;
 				}
 				if (target == GL_TEXTURE_3D)
@@ -696,7 +695,8 @@ static void upload(GLuint texture, GLenum target, const struct xgpu_texture_desc
 			}
 		}
 	}
-	free(converted);
+	/* converted points at upload_scratch, a reusable renderer-owned buffer.
+	Do not free it here; upload_scratch_get() grows and reuses it across uploads. */
 	texture_dump(target, description);
 }
 
