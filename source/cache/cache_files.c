@@ -411,11 +411,10 @@ static boolean cache_file_tag_header_verify(
 			problem = "scenario tag";
 		}
 
-#ifndef HALO_ANDROID
-		/* Desktop keeps the post-build-48 hardening that verifies every tag
-		base address before use. Android retains build-48 compatibility here:
-		some valid retail map variants used by the arm64_32 guest were rejected
-		by this new gate before the game reached the menu. */
+		/* port: each tag's data lies in the tag cache, or there is none yet
+		(a structure bsp's, set as it loads). Every tag_get goes by these.
+		The port's own tags (menu_tags.c) are added after this, and may lie
+		elsewhere */
 		for (absolute_index = 0;
 			!problem && absolute_index < tag_header->tag_count;
 			absolute_index++)
@@ -428,7 +427,6 @@ static boolean cache_file_tag_header_verify(
 				problem = "tag data address";
 			}
 		}
-#endif
 	}
 
 	if (problem)
@@ -1080,10 +1078,10 @@ long scenario_tags_load(
 
 				return NONE;
 			}
-#ifndef HALO_ANDROID
-			/* Desktop validates every map tag against the hardened schemas.
-			Android intentionally keeps the build-48 load path until the
-			arm64_32 guest is proven compatible with every retail map set. */
+			/* port: and every tag checked against its group's schema before
+			anything reads it (port/linux/game/tag_validate.c): a map whose
+			tags' pointers cannot be trusted is refused; what can be
+			corrected is */
 			if (!tag_validate_tags(
 				tag_cache_base_address,
 				cache_file_globals.header.tag_data_size,
@@ -1094,7 +1092,6 @@ long scenario_tags_load(
 
 				return NONE;
 			}
-#endif
 
 			cache_file_globals.tag_header = tag_cache_base_address;
 			match_vassert(
@@ -1222,9 +1219,8 @@ boolean scenario_structure_bsp_load(
 		}
 	}
 
-#ifndef HALO_ANDROID
-	/* Desktop keeps the hardened structure-BSP schema validation. Android
-	retains the build-48 load path for compatibility with its arm64_32 guest. */
+	/* port: and checked against its schema, as the map's tags were
+	(port/linux/game/tag_validate.c) */
 	if (!tag_validate_structure_bsp(
 		reference->structure_bsp.index,
 		reference->base_address,
@@ -1232,7 +1228,6 @@ boolean scenario_structure_bsp_load(
 	{
 		return FALSE;
 	}
-#endif
 
 	cache_file_globals.structure_bsp_header = structure_bsp_header;
 	match_assert(
