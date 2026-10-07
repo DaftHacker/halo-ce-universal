@@ -44,15 +44,6 @@ The game needs the `maps/` folder from an Xbox disc image (`.xiso` or
 `.iso`) of any version of the game. The app extracts `maps/` from the disc
 image. The app keeps the data in `/sdcard/Android/data/com.halo.decomp/files`.
 
-Halo's persistent `save/z/cache###.map` precaches are kept across normal
-launches and ordinary APK updates so later map loads can reuse them. A separate
-Android cache-schema number is bumped only when a port change may make those
-generated cache maps incompatible; that schema transition deletes them once
-and Halo rebuilds them from `maps/`. The launcher also clears Android's
-ordinary app cache when the APK or storage schema changes and removes
-interrupted transactional files such as `maps.partial`. It deliberately
-preserves `maps/`, `save/z/saved/`, `save/u/`, and `config.toml`.
-
 To install the data with the app:
 
 1. Copy the disc image to the phone.
@@ -104,25 +95,6 @@ The controller gets the rumble. The back gesture of Android is the B
 button. A Bluetooth or USB keyboard operates as on Linux. The screen does
 not accept touch input.
 
-### Bumper Jumper
-
-Bumper Jumper is available from the normal player-profile controller
-settings; it is not forced as Android's default layout. Selecting it changes
-gameplay controls while menu navigation remains A = accept and B = back.
-
-| Xbox-style input | Bumper Jumper function |
-| --- | --- |
-| LB / white | jump |
-| RB / black | melee |
-| A | switch grenades |
-| B | action / reload |
-| X | flashlight |
-| Y | switch weapon |
-| LT | throw grenade |
-| RT | fire |
-| L3 | crouch |
-| R3 | zoom |
-
 ## Settings
 
 The settings are in `config.toml` in the data folder of the app. To change
@@ -142,33 +114,7 @@ These settings are only for Android:
 | Setting | Function |
 | --- | --- |
 | `display.screen_width` | The number of columns of the 480-line picture. `0` (the default): the shape of the display (1068 on a 20:9 phone). `640`: the 4:3 shape of the Xbox. |
-| `display.object_shadows` | Projected object shadows. Default `true`. Set `false` to diagnose or avoid the model + BSP projection work that scales with nearby players and AI. |
-| `display.shadow_detail` | Detail used only for projected shadow silhouettes, `0.25` to `1.0`; default `1.0` preserves upstream quality. The visible character model keeps its normal LOD. |
-| `display.entity_lighting_interval` | Minimum ticks between expensive static-lighting resamples for close objects, `1` to `10`; default `1` preserves upstream timing. Dynamic lights are still refreshed normally. |
 | `debug.sample_seconds` | Refer to "Find problems". |
-
-### Nearby-player and AI performance
-
-Object rendering becomes intentionally more expensive as an object occupies
-more screen pixels. Close models choose higher geometry LODs; objects marked
-for lighting recomputation resample static BSP/lightmap lighting more often;
-and projected shadows render the object's model again before finding nearby
-BSP surfaces, building dynamic projection triangles and drawing them.
-
-Upstream now caches cluster light lists, rejects far lights before distance
-work, avoids repeated full-array/list scans, caches hot texture/render/shader
-lookups and tracks changed vertex constants more cheaply. Those optimizations
-preserve the same picture and are the default solution for many-visible-enemy
-scenes. The Android controls below are therefore fallback diagnostics only:
-set `display.object_shadows = false` to isolate projected shadows, lower
-`display.shadow_detail` from its quality-preserving 1.0 default only if
-needed, or raise `display.entity_lighting_interval` above its upstream-
-equivalent default of 1 only for additional CPU relief. This does not reduce AI, physics, animation, sound count
-or the visible model's geometry.
-
-3D sound audibility also scales with nearby entities. The native port rejects
-out-of-range sources before doing obstruction collision work; audible nearby
-sources still retain normal obstruction, occlusion and spatialization.
 
 ## Internet play
 
@@ -298,19 +244,9 @@ functions of OpenGL ES 3.2 if they are available:
 - BGRA textures go to the GPU as RGBA with a swizzle. If the driver has no
   S3TC (Mali GPUs), the CPU decodes the DXT textures.
 - The pixel shaders apply the LOD bias of the sampler.
-- `D3DCOLOR` vertex attributes stay in their Xbox BGRA byte order in guest
-  memory; generated vertex shaders swizzle them to RGBA. This lets color
-  streams use the same mirrored-buffer path as other static vertex data.
-- Sequential quad-list effects keep their triangle indices in a static GPU
-  buffer. Indexed quad conversion and ES 3.0/3.1 rebasing keep reusable CPU
-  scratch storage.
+- The upload changes the byte order of `D3DCOLOR` vertex attributes.
 - Dynamic vertex and index data goes into a ring of three buffers, one for
-  each frame. A draw's dynamic vertex streams are copied through one host
-  call and one mapped range instead of mapping once per stream. On Mali,
-  other buffering methods used too much memory.
-- The texture cache reads memory-watch generations from shared low memory
-  instead of crossing the guest/host ABI for every lookup. CPU-decoded
-  texture uploads also reuse their conversion buffer.
+  each frame. On Mali, other methods used too much memory.
 - On OpenGL ES 3.2, indexed draws use a base vertex. Before 3.2, the CPU
   changes the indices.
 - On OpenGL ES 3.1 and later, the visibility tests (lens flares) count
@@ -354,30 +290,6 @@ assembly of the port is necessary:
   address.
 - The symbol aliases in `guest/libc/src_include/features.h`. The Darwin
   target does not accept alias attributes.
-
-## Performance tuning
-
-The Android defaults favor compatibility, but two settings are useful on
-CPU-limited devices:
-
-- `audio.buffer_frames = 1024` is the Android default. The value is clamped
-  to 256..4096 frames. Increasing it can hide short scheduler stalls; lowering
-  it reduces audio latency but makes underruns more likely. The software mixer
-  keeps an O(1) playback cursor through queued packets and uses an inexpensive
-  soft limiter so dense combat audio does not multiply queue scans or libm
-  calls per sample.
-- `display.max_fps = N` enables a software cap on Android for positive values,
-  even with vsync enabled. A sustainable cap such as 30, 45 or 60 can improve
-  frame pacing and leave CPU time for audio. `0` keeps normal platform pacing
-  and `-1` disables the software cap.
-
-For diagnosis, `display.interpolation = false` keeps the original 30 rendered
-frames per second. It also avoids snapshotting and blending every rendered
-object's node matrices between 30 Hz simulation ticks. On hardware that does
-not sustain more than 30 FPS, leaving interpolation off can save substantial
-CPU time as enemy counts rise. If a long frame makes the camera or character
-appear to jump for a moment, compare the same scene with interpolation off to
-separate interpolation/frame-pacing behavior from game simulation.
 
 ## Find problems
 

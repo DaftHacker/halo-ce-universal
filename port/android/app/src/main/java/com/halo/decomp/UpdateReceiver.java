@@ -17,7 +17,6 @@ public class UpdateReceiver extends BroadcastReceiver {
         if (!Intent.ACTION_MY_PACKAGE_REPLACED.equals(intent.getAction()))
             return;
         new File(new File(context.getCacheDir(), UpdateProvider.DIRECTORY), UpdateProvider.APK).delete();
-        StorageMaintenance.onLaunch(context);
         try {
             Intent start = new Intent(context, LauncherActivity.class);
 
