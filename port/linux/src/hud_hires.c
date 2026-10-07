@@ -23,7 +23,11 @@ the port's zlib (port/third_party/zlib: a menus folder's PNGs are anyone's).
 #include "port_config.h"
 #include "xgpu.h"
 
+#ifdef HALO_ANDROID
+#include "memory/zlib/zlib.h"
+#else
 #include "zlib_prefixed.h"
+#endif
 
 #include <stdlib.h>
 #include <string.h>
