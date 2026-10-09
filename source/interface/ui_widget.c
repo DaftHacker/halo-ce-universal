@@ -1445,6 +1445,7 @@ static wchar_t *spinner_string_list_get_string(
 /* port: text boxes' string list indices from here are the descriptions of
 spinners' extra items (kills_to_win_extra_descriptions) */
 #define SPINNER_EXTRA_DESCRIPTION_BASE 0x5000
+#define SPINNER_BUMPER_JUMPER_DESCRIPTION 0x5100
 /* ... and the pixels a spinner with extra items is wider (for three digits) */
 #define SPINNER_EXTRA_WIDTH 12
 
@@ -5227,6 +5228,10 @@ static void widget_instance_render_text_box(
 		{
 			string = (wchar_t *)kills_to_win_extra_descriptions[string_list_index - SPINNER_EXTRA_DESCRIPTION_BASE];
 		}
+		else if (string_list_index == SPINNER_BUMPER_JUMPER_DESCRIPTION)
+		{
+			string = L"Bumper Jumper: jump on the left bumper while keeping camera control on the right stick.";
+		}
 		length = ustrlen(string);
 		widget->parameters.text_box.text = pool_resize_pointer(
 			widget_memory_pool,
@@ -5466,9 +5471,26 @@ static void widget_instance_render_spinner_list(
 		if (definition->text_label_string_list.index != NONE)
 		{
 			short string_index = widget->parameters.list.selected_index;
-			wchar_t *string = spinner_string_list_get_string(
-				definition->text_label_string_list.index,
-				string_index);
+			struct string_list *string_list =
+				unicode_string_list_definition_get(definition->text_label_string_list.index);
+			wchar_t *string;
+
+			/* The controller-layout spinner is extended by one fork preset at
+			   runtime. Retail map data still contains only the original five
+			   strings, so supply this label without changing the map. */
+			if (string_index == _button_preset_bumper_jumper &&
+				widget->parameters.list.number_of_items == NUMBER_OF_BUTTON_PRESETS &&
+				string_list &&
+				string_list->strings.count == NUMBER_OF_BUTTON_PRESETS - 1)
+			{
+				string = L"Bumper Jumper";
+			}
+			else
+			{
+				string = spinner_string_list_get_string(
+					definition->text_label_string_list.index,
+					string_index);
+			}
 			unsigned long length = ustrlen(string);
 
 			item_text = pool_new_pointer(
@@ -6599,9 +6621,20 @@ short ui_widget_spinner_own_item_count(
 	struct widget_instance *spinner)
 {
 	struct ui_widget_definition *definition = ui_widget_definition_get(spinner->definition_tag_index);
-
-	return (short)(spinner->parameters.list.number_of_items -
+	struct string_list *string_list =
+		unicode_string_list_definition_get(definition->text_label_string_list.index);
+	short own = (short)(spinner->parameters.list.number_of_items -
 		spinner_string_list_extra_count(definition->text_label_string_list.index));
+
+	/* Bumper Jumper is a port-side sixth controller preset. Retail ui.map
+	   only has five strings for this spinner, so item 5 must never be
+	   treated as belonging to the map's string list. */
+	if (spinner->parameters.list.number_of_items == NUMBER_OF_BUTTON_PRESETS &&
+		string_list && string_list->strings.count == NUMBER_OF_BUTTON_PRESETS - 1)
+	{
+		own = NUMBER_OF_BUTTON_PRESETS - 1;
+	}
+	return own;
 }
 
 /* the string list index of the description of a spinner's extra item, or
@@ -6610,10 +6643,19 @@ short ui_widget_spinner_extra_description(
 	struct widget_instance *spinner,
 	short item_index)
 {
+	struct ui_widget_definition *definition = ui_widget_definition_get(spinner->definition_tag_index);
+	struct string_list *string_list =
+		unicode_string_list_definition_get(definition->text_label_string_list.index);
 	short own = ui_widget_spinner_own_item_count(spinner);
 
 	if (item_index < own)
 		return NONE;
+	if (spinner->parameters.list.number_of_items == NUMBER_OF_BUTTON_PRESETS &&
+		string_list && string_list->strings.count == NUMBER_OF_BUTTON_PRESETS - 1 &&
+		item_index == _button_preset_bumper_jumper)
+	{
+		return SPINNER_BUMPER_JUMPER_DESCRIPTION;
+	}
 	return (short)(SPINNER_EXTRA_DESCRIPTION_BASE + item_index - own);
 }
 

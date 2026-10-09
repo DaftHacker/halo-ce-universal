@@ -37,6 +37,7 @@ enum
 	_button_preset_swap_a_and_left_trigger,
 	_button_preset_swap_b_and_left_trigger,
 	_button_preset_swap_b_and_right_thumb,
+	_button_preset_bumper_jumper,
 	NUMBER_OF_BUTTON_PRESETS
 };
 

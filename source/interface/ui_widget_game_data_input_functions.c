@@ -3917,9 +3917,12 @@ static void player_profile_1wide_list_update(
 						wchar_t const *joystick_description = unicode_string_list_get_string(
 							joystick_descriptions_tag_index,
 							profile->controller_settings.joystick_preset);
-						wchar_t const *button_description = unicode_string_list_get_string(
-							button_descriptions_tag_index,
-							profile->controller_settings.button_preset);
+						wchar_t const *button_description =
+							profile->controller_settings.button_preset == _button_preset_bumper_jumper ?
+								L"Bumper Jumper" :
+								unicode_string_list_get_string(
+									button_descriptions_tag_index,
+									profile->controller_settings.button_preset);
 
 						usnprintf(
 							profile_description->parameters.text_box.text,
@@ -3948,9 +3951,12 @@ static void player_profile_1wide_list_update(
 						wchar_t const *joystick_description = unicode_string_list_get_string(
 							joystick_descriptions_tag_index,
 							profile->controller_settings.joystick_preset);
-						wchar_t const *button_description = unicode_string_list_get_string(
-							button_descriptions_tag_index,
-							profile->controller_settings.button_preset);
+						wchar_t const *button_description =
+							profile->controller_settings.button_preset == _button_preset_bumper_jumper ?
+								L"Bumper Jumper" :
+								unicode_string_list_get_string(
+									button_descriptions_tag_index,
+									profile->controller_settings.button_preset);
 
 						usnprintf(
 							profile_description->parameters.text_box.text,
